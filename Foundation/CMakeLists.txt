@@ -13,6 +13,11 @@ ELSEIF(${COCOTRON_PLATFORM} STREQUAL "linux")
 		objc/platform_linux/objc-msgsend.s
 		NSObject/platform_linux/msgSendv-linux.s)
 	ADD_DEFINITIONS(-DLINUX) # XXX: test
+ELSEIF(${COCOTRON_PLATFORM} STREQUAL "bsd")
+	# bsd uses same asm backing code as linux
+	SET(foundation_asm_src
+		objc/platform_linux/objc-msgsend.s
+		NSObject/platform_linux/msgSendv-linux.s)
 ENDIF(${COCOTRON_PLATFORM} STREQUAL "darwin")
 
 ASM_RULE("${foundation_asm_src}" "foundation_asm_objs")
