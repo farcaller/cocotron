@@ -11,7 +11,7 @@ ELSEIF(${COCOTRON_PLATFORM} STREQUAL "win32")
 ELSEIF(${COCOTRON_PLATFORM} STREQUAL "linux")
 	SET(foundation_asm_src
 		objc/platform_linux/objc-msgsend.s
-		NSObject/platform_win32/msgSendv-linux.s)
+		NSObject/platform_linux/msgSendv-linux.s)
 	ADD_DEFINITIONS(-DLINUX) # XXX: test
 ENDIF(${COCOTRON_PLATFORM} STREQUAL "darwin")
 
