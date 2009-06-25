@@ -13,16 +13,16 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #import "KGDeviceContext_gdiDIBSection.h"
 #import "KGSurface_DIBSection.h"
 #import "Win32DeviceContextWindow.h"
-#import <AppKit/KGGraphicsState.h>
+#import <CoreGraphics/KGGraphicsState.h>
 #import <AppKit/KGDeviceContext_gdi.h>
-#import <AppKit/KGMutablePath.h>
-#import <AppKit/KGColor.h>
-#import <AppKit/KGColorSpace.h>
-#import <AppKit/KGShading.h>
-#import <AppKit/KGFunction.h>
+#import <CoreGraphics/KGMutablePath.h>
+#import <CoreGraphics/KGColor.h>
+#import <CoreGraphics/KGColorSpace.h>
+#import <CoreGraphics/KGShading.h>
+#import <CoreGraphics/KGFunction.h>
 #import "KTFont_gdi.h"
 #import "../../CoreGraphics/KGImage.h"
-#import <AppKit/KGClipPhase.h>
+#import <CoreGraphics/KGClipPhase.h>
 #import <AppKit/Win32Font.h>
 #import <AppKit/NSRaise.h>
 
@@ -956,9 +956,9 @@ void CGGraphicsSourceOver_bgra32_onto_bgrx32(unsigned char *sourceBGRA,unsigned 
    combineBGRX=bits;
    SelectObject(combineDC,bitmap);
 
-   BitBlt(combineDC,0,0,combineWidth,combineHeight,sourceDC,point.x,point.y,SRCCOPY);
+   StretchBlt(combineDC,0,0,combineWidth,combineHeight,sourceDC,point.x,point.y,rect.size.width,rect.size.height,SRCCOPY);
    GdiFlush();
-   
+
 #if 1
    if((CGImageGetAlphaInfo(image)==kCGImageAlphaPremultipliedFirst) && ([image bitmapInfo]&kCGBitmapByteOrderMask)==kCGBitmapByteOrder32Little)
     CGGraphicsSourceOver_bgra32_onto_bgrx32(imageRGBA,(unsigned char *)combineBGRX,width,height,fraction);
@@ -968,7 +968,8 @@ void CGGraphicsSourceOver_bgra32_onto_bgrx32(unsigned char *sourceBGRA,unsigned 
    sourceOverImage(image,combineBGRX,width,height,fraction);
 #endif
 
-   BitBlt(sourceDC,point.x,point.y,combineWidth,combineHeight,combineDC,0,0,SRCCOPY);
+   StretchBlt(sourceDC,point.x,point.y,rect.size.width,rect.size.height,combineDC,0,0,combineWidth,combineHeight,SRCCOPY);
+
    DeleteObject(bitmap);
    DeleteDC(combineDC);
 }

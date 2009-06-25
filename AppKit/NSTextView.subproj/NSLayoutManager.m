@@ -24,7 +24,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #import <AppKit/NSGraphics.h>
 #import <ApplicationServices/ApplicationServices.h>
 #import "../../Foundation/NSAttributedString/NSRangeEntries.h"
-#import <AppKit/NSNibKeyedUnarchiver.h>
+#import <Foundation/NSKeyedArchiver.h>
 
 typedef struct {
    NSRect  rect;
@@ -58,8 +58,8 @@ static inline NSGlyphFragment *fragmentAtGlyphIndex(NSLayoutManager *self,unsign
 }
 
 -initWithCoder:(NSCoder *)coder {
-   if([coder isKindOfClass:[NSNibKeyedUnarchiver class]]){
-    NSNibKeyedUnarchiver *keyed=(NSNibKeyedUnarchiver *)coder;
+   if([coder allowsKeyedCoding]){
+    NSKeyedUnarchiver *keyed=(NSKeyedUnarchiver *)coder;
 
    _textStorage=[keyed decodeObjectForKey:@"NSTextStorage"];
    _typesetter=[NSTypesetter new];
@@ -740,7 +740,7 @@ static inline void _appendRectToCache(NSLayoutManager *self,NSRect rect){
     NSRange          characterRange=[self characterRangeForGlyphRange:glyphRange actualGlyphRange:NULL];
     unsigned         location=characterRange.location;
     unsigned         limit=NSMaxRange(characterRange);
-    BOOL             isFlipped=[[NSView focusView] isFlipped];
+    BOOL             isFlipped=[[NSGraphicsContext currentContext] isFlipped];
     float            usedHeight=[self usedRectForTextContainer:container].size.height;
     
     while(location<limit){
@@ -781,7 +781,7 @@ static inline void _appendRectToCache(NSLayoutManager *self,NSRect rect){
    NSColor    *selectedColor=[[textView selectedTextAttributes] objectForKey:NSForegroundColorAttributeName];
    
    NSTextContainer *container=[self textContainerForGlyphAtIndex:glyphRange.location effectiveRange:&glyphRange];
-   BOOL             isFlipped=[[NSView focusView] isFlipped];
+   BOOL             isFlipped=[[NSGraphicsContext currentContext] isFlipped];
    float            usedHeight=[self usedRectForTextContainer:container].size.height;
 
    if(selectedColor==nil)
@@ -845,6 +845,9 @@ static inline void _appendRectToCache(NSLayoutManager *self,NSRect rect){
          unsigned length=0;
          BOOL     showGlyphs=NO;
 
+         if(glyph==NSControlGlyph)
+          glyph=NSNullGlyph;
+          
          if(location==intersectRange.location && location>range.location){
           [color set];
 

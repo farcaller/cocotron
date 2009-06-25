@@ -1,4 +1,5 @@
 /* Copyright (c) 2006-2007 Christopher J. W. Lloyd
+                 2009 Markus Hitter <mah@jump-ing.de>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -14,7 +15,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #import <AppKit/NSGraphicsContext.h>
 #import <AppKit/NSImage.h>
 #import <AppKit/NSCursor.h>
-#import <AppKit/NSNibKeyedUnarchiver.h>
+#import <Foundation/NSKeyedArchiver.h>
 #import <AppKit/NSRaise.h>
 
 NSString *NSSplitViewDidResizeSubviewsNotification = @"NSSplitViewDidResizeSubviewsNotification";
@@ -29,8 +30,8 @@ NSString *NSSplitViewWillResizeSubviewsNotification = @"NSSplitViewWillResizeSub
 -initWithCoder:(NSCoder *)coder {
    [super initWithCoder:coder];
 
-   if([coder isKindOfClass:[NSNibKeyedUnarchiver class]]){
-    NSNibKeyedUnarchiver *keyed=(NSNibKeyedUnarchiver *)coder;
+   if([coder allowsKeyedCoding]){
+    NSKeyedUnarchiver *keyed=(NSKeyedUnarchiver *)coder;
     
     _isVertical=[keyed decodeBoolForKey:@"NSIsVertical"];
 // The divider thickness in the nib may not be the same as ours
@@ -101,35 +102,42 @@ NSString *NSSplitViewWillResizeSubviewsNotification = @"NSSplitViewWillResizeSub
 }
 
 -(void)adjustSubviews {
-   NSRect  frame;
+   NSRect  frame=[self bounds];
    int     i,count=[_subviews count];
-   NSPoint origin=[self bounds].origin;
 
    [self _postNoteWillResize];
-      
-   for(i=0;i<count;i++){
-    NSSize size=[self bounds].size;
 
-    if([self isVertical]){
-     size.width=floor((size.width-(count-1)*[self dividerThickness])/count);
-    }
-    else {
-     size.height=floor((size.height-(count-1)*[self dividerThickness])/count);
-    }
+   if([self isVertical]){
+    float totalWidthBefore=0.;
+    float totalWidthAfter=[self bounds].size.height-[self dividerThickness]*(count-1);
 
-    frame.origin=origin;
-    frame.size=size;
+    for(i=0;i<count;i++)
+     totalWidthBefore+=[[_subviews objectAtIndex:i] frame].size.height;
 
-    if([self isVertical]){
-     origin.x+=size.width;
-     origin.x+=[self dividerThickness];
+    for(i=0;i<count;i++){
+     frame.size.width=[[_subviews objectAtIndex:i] frame].size.width*(totalWidthAfter/totalWidthBefore);
+     [[_subviews objectAtIndex:i] setFrame:frame];
+  
+     frame.origin.x+=frame.size.width;
+     frame.origin.x+=[self dividerThickness];
     }
-    else {
-     origin.y+=size.height;
-     origin.y+=[self dividerThickness];
-    }
+   }
+   else {
+    float totalHeightBefore=0.;
+    float totalHeightAfter=[self bounds].size.height-[self dividerThickness]*(count-1);
 
-    [[_subviews objectAtIndex:i] setFrame:frame];
+    for(i=0;i<count;i++)
+     totalHeightBefore+=[[_subviews objectAtIndex:i] frame].size.height;
+
+    for(i=0;i<count;i++){
+     frame.size.height=[[_subviews objectAtIndex:i] frame].size.height*(totalHeightAfter/totalHeightBefore);
+     frame.size.height=floor(frame.size.height);
+
+     [[_subviews objectAtIndex:i] setFrame:frame];
+
+     frame.origin.y+=frame.size.height;
+     frame.origin.y+=[self dividerThickness];
+    }
    }
 
    [self _postNoteDidResize];

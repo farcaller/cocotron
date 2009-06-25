@@ -12,7 +12,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #import <AppKit/NSGraphicsContextFunctions.h>
 #import <ApplicationServices/ApplicationServices.h>
 #import <AppKit/NSDisplay.h>
-#import <AppKit/NSNibKeyedUnarchiver.h>
+#import <Foundation/NSKeyedArchiver.h>
 #import <AppKit/NSRaise.h>
 
 FOUNDATION_EXPORT char *NSUnicodeToSymbol(const unichar *characters,unsigned length,
@@ -199,8 +199,8 @@ static NSFont **_fontCache=NULL;
 }
 
 -initWithCoder:(NSCoder *)coder {
-   if([coder isKindOfClass:[NSNibKeyedUnarchiver class]]){
-    NSNibKeyedUnarchiver *keyed=(NSNibKeyedUnarchiver *)coder;
+   if([coder allowsKeyedCoding]){
+    NSKeyedUnarchiver *keyed=(NSKeyedUnarchiver *)coder;
     NSString          *name=[self _translateNibFontName:[keyed decodeObjectForKey:@"NSName"]];
     float              size=[keyed decodeFloatForKey:@"NSSize"];
     // int                flags=[keyed decodeIntForKey:@"NSfFlags"]; // ?
@@ -478,7 +478,7 @@ arrayWithArray:[_name componentsSeparatedByString:blank]];
    CGContextSetFontSize(cgContext,_pointSize);
 
 // FIX, should check the focusView in the context instead of NSView's
-   if([[NSView focusView] isFlipped]){
+   if([[NSGraphicsContext currentContext] isFlipped]){
     CGAffineTransform flip={1,0,0,-1,0,0};
     
     CGContextSetTextMatrix(cgContext,flip);
