@@ -2,7 +2,7 @@ FUNCTION(FIND_STUFF dir ext plat var)
 	# find all files with EXT in DIR matching specified PLATform and return
 	# the list in VAR
 	
-	FILE(GLOB files "${dir}/*.${ext}" "${dir}/**/*.${ext}")
+	FILE(GLOB_RECURSE files "${dir}/*.${ext}")
 	FOREACH(f ${files})
 		# check each file
 		GET_FILENAME_COMPONENT(fn ${f} NAME)
@@ -31,7 +31,7 @@ FUNCTION(FIND_STUFF dir ext plat var)
 	SET(${var} ${fl} PARENT_SCOPE)
 ENDFUNCTION(FIND_STUFF)
 
-FUNCTION(HEADER_TARGET dir tn)
+FUNCTION(HEADER_RULE dir ovar)
 	FIND_STUFF("${CMAKE_SOURCE_DIR}/${dir}" "h" ${COCOTRON_PLATFORM} headers)
 	FOREACH(src ${headers})
 		GET_FILENAME_COMPONENT(file_base ${src} NAME)
@@ -44,9 +44,8 @@ FUNCTION(HEADER_TARGET dir tn)
 		)
 		SET(headers_out ${headers_out} ${dst})
 	ENDFOREACH(src)
-	ADD_CUSTOM_TARGET(${tn} DEPENDS ${headers_out})
-	#SET(${ovar} ${headers_out} PARENT_SCOPE)
-ENDFUNCTION(HEADER_TARGET)
+	SET(${ovar} ${headers_out} PARENT_SCOPE)
+ENDFUNCTION(HEADER_RULE)
 
 FUNCTION(ASM_RULE src ovar)
 	FOREACH(f ${src})
