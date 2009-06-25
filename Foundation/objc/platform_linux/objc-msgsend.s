@@ -1,6 +1,6 @@
-.globl objc_msgSend_fpret
-	.type	objc_msgSend_fpret, @function
-objc_msgSend_fpret:
+.globl _objc_msgSend_fpret
+	.type	_objc_msgSend_fpret, @function
+_objc_msgSend_fpret:
 
 .globl _objc_msgSend
 	.type	_objc_msgSend, @function
@@ -63,9 +63,9 @@ L10:
 	jmp	*%eax
    
 
-.globl objc_msgSendSuper
-	.type	objc_msgSendSuper, @function
-objc_msgSendSuper:
+.globl _objc_msgSendSuper
+	.type	_objc_msgSendSuper, @function
+_objc_msgSendSuper:
 	pushl	%ebp
 	movl	%esp, %ebp
    pushl	%edi
@@ -102,9 +102,9 @@ _objc_msgSend_stret:
 	pop  %ebp
 	jmp		*%eax
 
-.globl objc_msgSendSuper_stret
-	.type	objc_msgSendSuper_stret, @function
-objc_msgSendSuper_stret:
+.globl _objc_msgSendSuper_stret
+	.type	_objc_msgSendSuper_stret, @function
+_objc_msgSendSuper_stret:
 	pushl	%ebp
 	movl	%esp, %ebp
    pushl	%edi
