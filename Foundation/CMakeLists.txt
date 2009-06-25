@@ -5,8 +5,8 @@ IF(${COCOTRON_PLATFORM} STREQUAL "darwin")
 		objc/platform_darwin/objc_msgSend-darwin-i386.s)
 ELSEIF(${COCOTRON_PLATFORM} STREQUAL "win32")
 	SET(foundation_asm_src
-		objc/platform_win32/objc-msgsend.s
-		NSObject/platform_win32/msgSendv-windows.s)
+		objc/platform_windows/objc-msgsend.s
+		NSObject/platform_windows/msgSendv-windows.s)
 	ADD_DEFINITIONS(-DWINDOWS) # XXX: test
 ELSEIF(${COCOTRON_PLATFORM} STREQUAL "linux")
 	SET(foundation_asm_src
