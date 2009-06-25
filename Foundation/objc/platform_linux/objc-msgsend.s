@@ -2,9 +2,9 @@
 	.type	objc_msgSend_fpret, @function
 objc_msgSend_fpret:
 
-.globl objc_msgSend
-	.type	objc_msgSend, @function
-objc_msgSend:
+.globl _objc_msgSend
+	.type	_objc_msgSend, @function
+_objc_msgSend:
 
 /*
    # this just calls objc_msg_lookup, then jumps to the returned method
@@ -89,9 +89,9 @@ objc_msgSendSuper:
 	jmp		*%eax   
 	
 	
-.globl objc_msgSend_stret
-	.type	objc_msgSend_stret, @function
-objc_msgSend_stret:
+.globl _objc_msgSend_stret
+	.type	_objc_msgSend_stret, @function
+_objc_msgSend_stret:
 	pushl	%ebp
 	movl	%esp, %ebp
 	subl	$32, %esp
