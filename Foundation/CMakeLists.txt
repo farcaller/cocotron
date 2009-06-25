@@ -3,14 +3,20 @@
 IF(${COCOTRON_PLATFORM} STREQUAL "darwin")
 	SET(foundation_asm_src objc/objc_msgSend-darwin-i386.s)
 ELSEIF(${COCOTRON_PLATFORM} STREQUAL "win32")
-	SET(foundation_asm_src objc/platform_win32/objc-msgsend.s)
+	SET(foundation_asm_src
+		objc/platform_win32/objc-msgsend.s
+		NSObject/msgSendv-windows.s
+		)
 	ADD_DEFINITIONS(-DWINDOWS) # XXX: test
 ELSEIF(${COCOTRON_PLATFORM} STREQUAL "linux")
-	SET(foundation_asm_src objc/platform_linux/objc-msgsend.s)
+	SET(foundation_asm_src
+		objc/platform_linux/objc-msgsend.s
+		NSObject/msgSendv-linux.s
+		)
 	ADD_DEFINITIONS(-DLINUX) # XXX: test
 ENDIF(${COCOTRON_PLATFORM} STREQUAL "darwin")
 
-ASM_RULE(${foundation_asm_src} "foundation_asm_objs")
+ASM_RULE("${foundation_asm_src}" "foundation_asm_objs")
 HEADER_TARGET("Foundation" "Foundation_Headers")
 
 INCLUDE_DIRECTORIES(BEFORE "${CMAKE_BINARY_DIR}/headers/")
