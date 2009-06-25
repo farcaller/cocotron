@@ -7,6 +7,7 @@ ELSEIF(${COCOTRON_PLATFORM} STREQUAL "win32")
 	ADD_DEFINITIONS(-DWINDOWS) # XXX: test
 ELSEIF(${COCOTRON_PLATFORM} STREQUAL "linux")
 	SET(foundation_asm_src objc/platform_linux/objc-msgsend.s)
+	ADD_DEFINITIONS(-DLINUX) # XXX: test
 ENDIF(${COCOTRON_PLATFORM} STREQUAL "darwin")
 
 ASM_RULE(${foundation_asm_src} "foundation_asm_objs")
