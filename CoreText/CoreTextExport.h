@@ -6,9 +6,29 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
-#import <Foundation/NSString.h>
+#ifdef __cplusplus
 
-FOUNDATION_EXPORT NSString *NSStringFromNullTerminatedUnicode(const unichar *characters);
+#if defined(__WIN32__)
+#if defined(CORETEXT_INSIDE_BUILD)
+#define CORETEXT_EXPORT extern "C" __declspec(dllexport)
+#else
+#define CORETEXT_EXPORT extern "C" __declspec(dllimport) 
+#endif
+#else
+#define CORETEXT_EXPORT extern "C"
+#endif
 
-FOUNDATION_EXPORT NSData *NSTaskArgumentDataFromString(NSString *string);
-FOUNDATION_EXPORT NSData *NSTaskArgumentDataFromStringW(NSString *string);
+#else
+
+#if defined(__WIN32__)
+#if defined(CORETEXT_INSIDE_BUILD)
+#define CORETEXT_EXPORT __declspec(dllexport) extern
+#else
+#define CORETEXT_EXPORT __declspec(dllimport) extern
+#endif
+#else
+#define CORETEXT_EXPORT extern
+#endif
+
+
+#endif // __cplusplus
