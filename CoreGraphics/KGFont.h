@@ -11,6 +11,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 @class KGFont;
 typedef KGFont *O2FontRef;
 
+@class NSData;
+
 @interface KGFont : NSObject {
    NSString *_name;
    int       _unitsPerEm;
@@ -24,6 +26,7 @@ typedef KGFont *O2FontRef;
    CGRect    _bbox;
    int       _numberOfGlyphs;
    int      *_advances;
+   CGGlyph  *_MacRomanEncoding;
 }
 
 +(KGFont *)createWithFontName:(NSString *)name;
@@ -35,6 +38,9 @@ typedef KGFont *O2FontRef;
 -(NSString *)copyGlyphNameForGlyph:(CGGlyph)glyph;
 
 -(void)fetchAdvances;
+
+-(CGGlyph *)MacRomanEncoding;
+-(CGGlyph *)glyphTableForEncoding:(CGTextEncoding)encoding;
 
 O2FontRef O2FontCreateWithFontName(NSString *name);
 O2FontRef O2FontRetain(O2FontRef self);

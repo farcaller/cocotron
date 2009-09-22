@@ -1,4 +1,5 @@
 /* Copyright (c) 2006-2007 Christopher J. W. Lloyd <cjwl@objc.net>
+                 2009 Markus Hitter <mah@jump-ing.de>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -28,7 +29,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #import <AppKit/NSCursor.h>
 #import <AppKit/NSTextView.h>
 #import <AppKit/NSCursorRect.h>
-#import <AppKit/NSTrackingRect.h>
+#import <AppKit/NSTrackingArea.h>
 #import <AppKit/NSToolbar.h>
 #import <AppKit/NSWindowAnimationContext.h>
 #import <AppKit/NSToolTipWindow.h>
@@ -47,6 +48,8 @@ NSString *NSWindowDidResizeNotification=@"NSWindowDidResizeNotification";
 NSString *NSWindowDidUpdateNotification=@"NSWindowDidUpdateNotification";
 NSString *NSWindowWillCloseNotification=@"NSWindowWillCloseNotification";
 NSString *NSWindowWillMoveNotification=@"NSWindowWillMoveNotification";
+NSString *NSWindowWillStartLiveResizeNotification=@"NSWindowWillStartLiveResizeNotification";
+NSString *NSWindowDidEndLiveResizeNotification=@"NSWindowDidEndLiveResizeNotification";
 
 NSString *NSWindowWillAnimateNotification=@"NSWindowWillAnimateNotification";
 NSString *NSWindowAnimatingNotification=@"NSWindowAnimatingNotification";
@@ -1502,6 +1505,7 @@ NSString *NSWindowDidAnimateNotification=@"NSWindowDidAnimateNotification";
 -(void)orderWindow:(NSWindowOrderingMode)place relativeTo:(int)relativeTo {
 // The move notifications are sent under unknown conditions around orderFront: in the Apple AppKit, we do them all the time here until it's figured out. I suspect it is a side effect of off-screen windows being at off-screen coordinates (as opposed to just being hidden)
 
+
    [self postNotificationName:NSWindowWillMoveNotification];
 
    switch(place){
@@ -1517,8 +1521,10 @@ NSString *NSWindowDidAnimateNotification=@"NSWindowDidAnimateNotification";
  */
      [self displayIfNeeded];
      // this is here since it would seem that doing this any earlier will not work.
-     if(![self isKindOfClass:[NSPanel class]] && ![self isExcludedFromWindowsMenu])
+     if(![self isKindOfClass:[NSPanel class]] && ![self isExcludedFromWindowsMenu]) {
          [NSApp changeWindowsItem:self title:_title filename:NO];
+         [NSApp _windowOrderingChange: NSWindowAbove forWindow: self relativeTo: (NSWindow *)relativeTo];
+     }
      break;
 
     case NSWindowBelow:
@@ -1533,15 +1539,19 @@ NSString *NSWindowDidAnimateNotification=@"NSWindowDidAnimateNotification";
  */
      [self displayIfNeeded];
      // this is here since it would seem that doing this any earlier will not work.
-     if(![self isKindOfClass:[NSPanel class]] && ![self isExcludedFromWindowsMenu])
-         [NSApp changeWindowsItem:self title:_title filename:NO];
+     if(![self isKindOfClass:[NSPanel class]] && ![self isExcludedFromWindowsMenu]) {
+       [NSApp changeWindowsItem:self title:_title filename:NO];
+       [NSApp _windowOrderingChange: NSWindowBelow forWindow: self relativeTo: (NSWindow*)relativeTo];
+     }
      break;
 
     case NSWindowOut:   
      _isVisible=NO;
      [[self platformWindow] hideWindow];
-     if (![self isKindOfClass:[NSPanel class]])
-      [NSApp removeWindowsItem:self];
+     if (![self isKindOfClass:[NSPanel class]]) {
+       [NSApp removeWindowsItem:self];
+       [NSApp _windowOrderingChange: NSWindowOut forWindow: self relativeTo: nil];
+     }
      break;
    }
 
@@ -1707,23 +1717,42 @@ NSString *NSWindowDidAnimateNotification=@"NSWindowDidAnimateNotification";
 }
 
 -(NSPoint)cascadeTopLeftFromPoint:(NSPoint)topLeftPoint {
+   BOOL    reposition = NO;
    NSSize  screenSize = [[self screen] frame].size;
    NSRect  frame = [self frame];
-
-   if (topLeftPoint.x + topLeftPoint.y == 0.0 || topLeftPoint.x > 0.5*screenSize.width || topLeftPoint.y < 0.5*screenSize.height)
+   
+   if (frame.origin.x < 0.0 || screenSize.width  <= frame.origin.x + frame.size.width)
    {
-      topLeftPoint.x = frame.origin.x;
-      topLeftPoint.y = frame.origin.y + frame.size.height;
+      frame.origin.x = 2.0;
+      reposition = YES;
    }
    
-   else
+   if (frame.origin.y < 0.0 || screenSize.height <= frame.origin.y + frame.size.height)
    {
-      topLeftPoint.x += 18;
-      topLeftPoint.y -= 21;
-      frame.origin.x=topLeftPoint.x;
-      frame.origin.y=topLeftPoint.y - frame.size.height;
-      [self setFrame:frame display:YES];
+      frame.origin.y = 2.0;
+      reposition = YES;
    }
+   
+   if (topLeftPoint.x != 0.0 && topLeftPoint.x + frame.size.width + 20.0 < screenSize.width)
+   {
+      topLeftPoint.x += 18.0;
+      frame.origin.x = topLeftPoint.x;
+      reposition = YES;
+   }
+   else
+      topLeftPoint.x = frame.origin.x;
+   
+   if (topLeftPoint.y != 0.0 && topLeftPoint.y - frame.size.height - 23.0 >= 0.0)
+   {
+      topLeftPoint.y -= 21.0;
+      frame.origin.y = topLeftPoint.y - frame.size.height;
+      reposition = YES;
+   }
+   else
+      topLeftPoint.y = frame.origin.y + frame.size.height;
+   
+   if (reposition)
+      [self setFrame:frame display:YES];
    
    return topLeftPoint;
 }
@@ -1784,12 +1813,40 @@ NSString *NSWindowDidAnimateNotification=@"NSWindowDidAnimateNotification";
    [self orderWindow:NSWindowOut relativeTo:0];
 }
 
--(void)performClose:sender {
-   if([_delegate respondsToSelector:@selector(windowShouldClose:)])
-    if(![_delegate windowShouldClose:self])
-     return;
+-(void)performClose:sender 
+{
+  if([_delegate respondsToSelector:@selector(windowShouldClose:)])
+    {
+      if(![_delegate windowShouldClose:self])
+        return;
+    }
+  else if ([self respondsToSelector:@selector(windowShouldClose:)])
+    {
+      if (![self windowShouldClose:self])
+        return;
+    }
+  
+  NSDocument * document = [_windowController document];
+  if (document)
+    {
+      [document shouldCloseWindowController:_windowController 
+                                   delegate:self 
+                        shouldCloseSelector:@selector(_document:shouldClose:contextInfo:)
+                                contextInfo:NULL];
+    }
+  else
+    {
+      [self close];
+    }
+}
 
-   [self close];
+-(void)_document:(NSDocument *)document shouldClose:(BOOL)shouldClose contextInfo:(void *)context
+{
+  // Callback used by performClose:
+  if (shouldClose)
+    {
+      [self close];
+    }
 }
 
 -(void)performMiniaturize:sender {
@@ -1879,7 +1936,7 @@ NSString *NSWindowDidAnimateNotification=@"NSWindowDidAnimateNotification";
 }
 
 -(NSTrackingRectTag)_addTrackingRect:(NSRect)rect view:(NSView *)view flipped:(BOOL)flipped owner:owner userData:(void *)userData assumeInside:(BOOL)assumeInside isToolTip:(BOOL)isToolTip {
-   NSTrackingRect *tracking=[[[NSTrackingRect alloc] initWithRect:rect view:view flipped:flipped owner:owner userData:userData assumeInside:assumeInside isToolTip:isToolTip] autorelease];
+   NSTrackingArea *tracking=[[[NSTrackingArea alloc] initWithRect:rect view:view flipped:flipped owner:owner userData:userData assumeInside:assumeInside isToolTip:isToolTip] autorelease];
 
    [tracking setTag:_nextTrackingRectTag++];
    [_trackingRects addObject:tracking];
@@ -1900,7 +1957,7 @@ NSString *NSWindowDidAnimateNotification=@"NSWindowDidAnimateNotification";
     int count=[_trackingRects count];
     
     while(--count>=0) {
-        NSTrackingRect *trackingRect = [_trackingRects objectAtIndex:count];
+        NSTrackingArea *trackingRect = [_trackingRects objectAtIndex:count];
         
         if (toolTipsOnly == YES && [trackingRect isToolTip] == NO)
             continue;
@@ -2177,7 +2234,7 @@ NSString *NSWindowDidAnimateNotification=@"NSWindowDidAnimateNotification";
    [NSApp updateWindows];
 }
 
--(void)platformWindow:(CGWindow *)window frameChanged:(NSRect)frame {
+-(void)platformWindow:(CGWindow *)window frameChanged:(NSRect)frame didSize:(BOOL)didSize {
    _frame=frame;
    _makeSureIsOnAScreen=YES;
 
@@ -2190,6 +2247,11 @@ NSString *NSWindowDidAnimateNotification=@"NSWindowDidAnimateNotification";
 
    [self saveFrameUsingName:_autosaveFrameName];
    [self resetCursorRects];
+   
+   if(didSize)
+    [self postNotificationName:NSWindowDidResizeNotification];
+   else
+    [self postNotificationName:NSWindowDidMoveNotification];
 }
 
 -(void)platformWindowExitMove:(CGWindow *)window {
@@ -2206,11 +2268,13 @@ NSString *NSWindowDidAnimateNotification=@"NSWindowDidAnimateNotification";
 }
 
 -(void)platformWindowWillBeginSizing:(CGWindow *)window {
+   [self postNotificationName:NSWindowWillStartLiveResizeNotification];
    [_backgroundView viewWillStartLiveResize];
 }
 
 -(void)platformWindowDidEndSizing:(CGWindow *)window {
    [_backgroundView viewDidEndLiveResize];
+   [self postNotificationName:NSWindowDidEndLiveResizeNotification];
 }
 
 -(void)platformWindow:(CGWindow *)window needsDisplayInRect:(NSRect)rect {
@@ -2255,18 +2319,22 @@ NSString *NSWindowDidAnimateNotification=@"NSWindowDidAnimateNotification";
    if([self areCursorRectsEnabled]){
     NSPoint point=[self mouseLocationOutsideOfEventStream];
     BOOL    isFlipped=[_backgroundView isFlipped];
-    BOOL    didTrackRect=NO;
 
     point=[_backgroundView convertPoint:point fromView:nil];
 
     if(NSMouseInRect(point,[_backgroundView frame],isFlipped)){
-     int i,count=[_cursorRects count];
+     int i,count;
+     NSToolTipWindow *toolTipWindow=[NSToolTipWindow sharedToolTipWindow];
+     NSInteger toolTipWindowVisible=0;
+     BOOL toolTipWindowChange=NO;
 
+     count=[_cursorRects count];
      for(i=0;i<count;i++){
       NSCursorRect *check=[_cursorRects objectAtIndex:i];
-      NSRect        rect=[check rect];
+      NSView *checkView=[check view];
+      NSRect localRect=[_backgroundView convertRect:[check rect] fromView:checkView];
 
-      if(![[check view] isHidden] && NSMouseInRect(point,rect,isFlipped)){
+      if(![checkView isHidden] && NSMouseInRect(point,localRect,isFlipped)){
        [[check cursor] set];
        didSetCursor=YES;
        break;
@@ -2274,48 +2342,61 @@ NSString *NSWindowDidAnimateNotification=@"NSWindowDidAnimateNotification";
      }
 
      count=[_trackingRects count];
+     if([toolTipWindow isVisible]==YES)
+      toolTipWindowVisible=1;
      for(i=0;i<count;i++){
-      NSTrackingRect *check=[_trackingRects objectAtIndex:i];
+      NSTrackingArea *check=[_trackingRects objectAtIndex:i];
+      NSView *checkView=[check view];
+      NSRect localRect=[_backgroundView convertRect:[check rect] fromView:checkView];
 
-                if(![[check view] isHidden] && NSMouseInRect(point,[check rect],isFlipped)){
-                    if([check isToolTip]) {
-                        NSString *toolTip;
-                        NSPoint locationOnScreen=NSMakePoint(NSMaxX([[check view] bounds]) + 5.0, NSMinY([[check view] bounds]) - 5.0);
-                        
-                        locationOnScreen=[[check view] convertPoint:locationOnScreen toView:nil];
-                        locationOnScreen=[[[check view] window] convertBaseToScreen:locationOnScreen];
-                        
-                        if ([[check owner] respondsToSelector:@selector(view:stringForToolTip:point:userData:)])
-                            toolTip = [[check owner] view:[check view] stringForToolTip:[check tag] point:point userData:[check userData]];
-                        else
-                            toolTip = [[check owner] description];
-                        
-                        if ([[[NSToolTipWindow sharedToolTipWindow] toolTip] isEqualToString:toolTip] == NO) {
-                            [[NSToolTipWindow sharedToolTipWindow] setToolTip:toolTip];
-                            [[NSToolTipWindow sharedToolTipWindow] setLocationOnScreen:locationOnScreen];
-                            
-                            [[NSToolTipWindow sharedToolTipWindow] performSelector:@selector(orderFront:) withObject:nil afterDelay:0.5];
-                        }
-                    }
-                    else
-                        [[check owner] mouseEntered:[NSEvent mouseEventWithType:NSMouseEntered location:point modifierFlags:0 window:self clickCount:0]];
-                    
-                    [_trackedRect release];
-                    _trackedRect = [check retain];
-                    
-                    didTrackRect = YES;
-                }
+      if([check mouseInside] &&
+         ([checkView isHidden] || !NSMouseInRect(point,localRect,isFlipped))){
+       // mouseExited
+       if([check isToolTip]){
+        toolTipWindowVisible--;
+        toolTipWindowChange=YES;
+       }
+       else
+        [[check owner] mouseExited:[NSEvent mouseEventWithType:NSMouseExited location:point modifierFlags:0 window:self clickCount:0]];
+
+       [check setMouseInside:NO];
+      }
+      else if(![check mouseInside] && ![checkView isHidden] &&
+              NSMouseInRect(point,localRect,isFlipped)){
+       // mouseEntered
+       if([check isToolTip]){
+        NSString *toolTip;
+
+        NSPoint locationOnScreen=NSMakePoint(NSMaxX([checkView bounds]) + 5.0, NSMinY([checkView bounds]) - 5.0);
+        locationOnScreen=[checkView convertPoint:locationOnScreen toView:nil];
+        locationOnScreen=[[checkView window] convertBaseToScreen:locationOnScreen];
+
+        if ([[check owner] respondsToSelector:@selector(view:stringForToolTip:point:userData:)])
+         toolTip = [[check owner] view:checkView stringForToolTip:[check tag] point:point userData:[check userData]];
+        else
+         toolTip = [[check owner] description];
+
+        [toolTipWindow setToolTip:toolTip];
+        [toolTipWindow setLocationOnScreen:locationOnScreen];
+        toolTipWindowVisible++;
+        toolTipWindowChange=YES;
+       }
+       else
+        [[check owner] mouseEntered:[NSEvent mouseEventWithType:NSMouseEntered location:point modifierFlags:0 window:self clickCount:0]];
+
+       [check setMouseInside:YES];
+      }
+     }
+
+     if(toolTipWindowChange){
+      if(toolTipWindowVisible>=0 && ![toolTipWindow isVisible])
+       [toolTipWindow performSelector:@selector(orderFront:) withObject:nil afterDelay:0.5];
+      else if(toolTipWindowVisible<=0){
+       [NSObject cancelPreviousPerformRequestsWithTarget:toolTipWindow selector:@selector(orderFront:) object:nil];
+       [toolTipWindow orderOut:nil];
+      }
      }
     }
-        if (didTrackRect == NO && _trackedRect != nil) {
-            if ([_trackedRect isToolTip])
-                [[NSToolTipWindow sharedToolTipWindow] orderOut:nil];
-            else
-                [[_trackedRect owner] mouseExited:[NSEvent mouseEventWithType:NSMouseExited location:point modifierFlags:0 window:self clickCount:0]];
-            
-            [_trackedRect release];
-            _trackedRect = nil;
-        }        
    }
    return didSetCursor;
 }
@@ -2324,6 +2405,12 @@ NSString *NSWindowDidAnimateNotification=@"NSWindowDidAnimateNotification";
     if ([_delegate respondsToSelector:@selector(windowWillReturnUndoManager:)])
         return [_delegate windowWillReturnUndoManager:self];
     
+    // If this window is associated with a document, return the document's undo manager.
+    // Apple's documentation says this is the delegate's responsibility, but that's not how it works in real life.
+    if (_undoManager == nil) {
+        _undoManager = [[[[self windowController] document] undoManager] retain];
+    }
+
     //  If the delegate does not implement this method, the NSWindow creates an NSUndoManager for the window and all its views. -- seems like some duplication vs. NSDocument, but oh well..
     if (_undoManager == nil){
         _undoManager = [[NSUndoManager alloc] init];
@@ -2331,6 +2418,23 @@ NSString *NSWindowDidAnimateNotification=@"NSWindowDidAnimateNotification";
     }
 
     return _undoManager;
+}
+
+-(void)undo:sender {
+    [[self undoManager] undo];
+}
+
+-(void)redo:sender {
+    [[self undoManager] redo];
+}
+
+-(BOOL)validateMenuItem:(NSMenuItem *)item {
+    if ([item action] == @selector(undo:))
+        return [[self undoManager] canUndo];
+    if ([item action] == @selector(redo:))
+        return [[self undoManager] canRedo];
+    
+    return YES;
 }
 
 -(void)_attachDrawer:(NSDrawer *)drawer {

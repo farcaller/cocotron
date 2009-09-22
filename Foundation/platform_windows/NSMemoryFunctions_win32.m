@@ -11,7 +11,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #import <Foundation/NSZombieObject.h>
 #import <Foundation/NSPlatform_win32.h>
 #import <Foundation/NSString.h>
-#import <Foundation/NSThread.h>
+#import <Foundation/NSThread-Private.h>
 
 #import <windows.h>
 #import <process.h>
@@ -52,12 +52,12 @@ NSUInteger NSRealMemoryAvailable(void) {
 }
 
 static DWORD Win32ThreadStorageIndex() {
-   static DWORD tlsIndex=0xFFFFFFFF;
+   static DWORD tlsIndex=TLS_OUT_OF_INDEXES;
 
-   if(tlsIndex==0xFFFFFFFF)
+   if(tlsIndex==TLS_OUT_OF_INDEXES)
     tlsIndex=TlsAlloc();
 
-   if(tlsIndex==0xFFFFFFFF)
+   if(tlsIndex==TLS_OUT_OF_INDEXES)
     Win32Assert("TlsAlloc");
 
    return tlsIndex;
@@ -118,6 +118,17 @@ NSThread *NSPlatformCurrentThread() {
 		// maybe NSThread is not +initialize'd
 		[NSThread class];
 		thread=TlsGetValue(Win32ThreadStorageIndex());
+                if(!thread) {
+                  thread = [NSThread alloc];
+                  if(thread) {
+                    NSPlatformSetCurrentThread(thread);
+                    {
+                      NSAutoreleasePool *pool = [NSAutoreleasePool new];
+                      [thread init];
+                      [pool release];
+                    }
+                  }
+                }
 		if(!thread)	{
 			[NSException raise:NSInternalInconsistencyException format:@"No current thread"];
 		}
@@ -168,4 +179,16 @@ void *_NSClosureAlloc(NSUInteger size)
 void _NSClosureProtect(void* closure, NSUInteger size)
 {
    VirtualProtect(allocation, maxSize, PAGE_EXECUTE_READ, NULL);
+}
+
+void FoundationThreadCleanup()
+{
+  NSThread *thread = TlsGetValue(Win32ThreadStorageIndex());
+
+  if(thread){
+    [thread setExecuting:NO];
+    [thread setFinished:YES];
+    [thread release];
+    NSPlatformSetCurrentThread(nil);
+  }
 }

@@ -8,20 +8,21 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 #import <Foundation/NSObject.h>
 #import <CoreGraphics/CoreGraphics.h>
+#import "O2ColorSpace.h"
 
-@class KGColor,KGColorSpace,KGShading,KGImage,KGGraphicsState,KGMutablePath,KGPath,KGPattern,KGLayer,KGPDFPage,NSMutableArray,CGWindow,KGSurface,NSDictionary,NSData,KGFont;
+@class O2Color,KGShading,KGImage,KGGraphicsState,O2MutablePath,O2Path,KGPattern,KGLayer,KGPDFPage,NSMutableArray,CGWindow,KGSurface,NSDictionary,NSData,KGFont;
 
 @interface KGContext : NSObject {
    CGAffineTransform _userToDeviceTransform;
    NSMutableArray   *_layerStack;
    NSMutableArray   *_stateStack;
-   KGMutablePath    *_path;
+   O2MutablePath    *_path;
    BOOL              _allowsAntialiasing;
 }
 
 +(KGContext *)createContextWithSize:(CGSize)size window:(CGWindow *)window;
 +(KGContext *)createBackingContextWithSize:(CGSize)size context:(KGContext *)context deviceDictionary:(NSDictionary *)deviceDictionary;
-+(KGContext *)createWithBytes:(void *)bytes width:(size_t)width height:(size_t)height bitsPerComponent:(size_t)bitsPerComponent bytesPerRow:(size_t)bytesPerRow colorSpace:(KGColorSpace *)colorSpace bitmapInfo:(CGBitmapInfo)bitmapInfo;
++(KGContext *)createWithBytes:(void *)bytes width:(size_t)width height:(size_t)height bitsPerComponent:(size_t)bitsPerComponent bytesPerRow:(size_t)bytesPerRow colorSpace:(O2ColorSpaceRef)colorSpace bitmapInfo:(CGBitmapInfo)bitmapInfo;
 
 +(BOOL)canInitWithWindow:(CGWindow *)window;
 +(BOOL)canInitBackingWithContext:(KGContext *)context deviceDictionary:(NSDictionary *)deviceDictionary;
@@ -58,7 +59,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 -(void)addArc:(float)x:(float)y:(float)radius:(float)startRadian:(float)endRadian:(int)clockwise;
 -(void)addArcToPoint:(float)x1:(float)y1:(float)x2:(float)y2:(float)radius;
 -(void)addEllipseInRect:(CGRect)rect;
--(void)addPath:(KGPath *)path;
+-(void)addPath:(O2Path *)path;
 -(void)replacePathWithStrokedPath;
 
 -(KGGraphicsState *)currentState;
@@ -90,20 +91,20 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 -(void)clipToRect:(CGRect)rect;
 -(void)clipToRects:(const CGRect *)rects count:(unsigned)count;
 
--(KGColor *)strokeColor;
--(KGColor *)fillColor;
+-(O2Color *)strokeColor;
+-(O2Color *)fillColor;
 
--(void)setStrokeColorSpace:(KGColorSpace *)colorSpace;
--(void)setFillColorSpace:(KGColorSpace *)colorSpace;
+-(void)setStrokeColorSpace:(O2ColorSpaceRef)colorSpace;
+-(void)setFillColorSpace:(O2ColorSpaceRef)colorSpace;
 
 -(void)setStrokeColorWithComponents:(const float *)components;
--(void)setStrokeColor:(KGColor *)color;
+-(void)setStrokeColor:(O2Color *)color;
 -(void)setGrayStrokeColor:(float)gray:(float)alpha;
 -(void)setRGBStrokeColor:(float)r:(float)g:(float)b:(float)alpha;
 -(void)setCMYKStrokeColor:(float)c:(float)m:(float)y:(float)k:(float)alpha;
 
 -(void)setFillColorWithComponents:(const float *)components;
--(void)setFillColor:(KGColor *)color;
+-(void)setFillColor:(O2Color *)color;
 -(void)setGrayFillColor:(float)gray:(float)alpha;
 -(void)setRGBFillColor:(float)r:(float)g:(float)b:(float)alpha;
 -(void)setCMYKFillColor:(float)c:(float)m:(float)y:(float)k:(float)alpha;
@@ -131,7 +132,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 -(void)setFont:(KGFont *)font;
 -(void)setFontSize:(float)size;
--(void)selectFontWithName:(const char *)name size:(float)size encoding:(int)encoding;
+-(void)selectFontWithName:(const char *)name size:(float)size encoding:(CGTextEncoding)encoding;
 -(void)setShouldSmoothFonts:(BOOL)yesOrNo;
 
 -(void)setLineWidth:(float)width;
@@ -146,7 +147,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 -(void)setFlatness:(float)flatness;
 -(void)setInterpolationQuality:(CGInterpolationQuality)quality;
    
--(void)setShadowOffset:(CGSize)offset blur:(float)blur color:(KGColor *)color;
+-(void)setShadowOffset:(CGSize)offset blur:(float)blur color:(O2Color *)color;
 -(void)setShadowOffset:(CGSize)offset blur:(float)blur;
 
 -(void)setShouldAntialias:(BOOL)yesOrNo;
@@ -201,7 +202,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 -(size_t)height;
 -(size_t)bitsPerComponent;
 -(size_t)bytesPerRow;
--(KGColorSpace *)colorSpace;
+-(O2ColorSpaceRef)colorSpace;
 -(CGBitmapInfo)bitmapInfo;
 
 -(size_t)bitsPerPixel;
@@ -223,8 +224,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 -(NSData *)captureBitmapInRect:(CGRect)rect;
 
 -(void)deviceClipReset;
--(void)deviceClipToNonZeroPath:(KGPath *)path;
--(void)deviceClipToEvenOddPath:(KGPath *)path;
+-(void)deviceClipToNonZeroPath:(O2Path *)path;
+-(void)deviceClipToEvenOddPath:(O2Path *)path;
 -(void)deviceClipToMask:(KGImage *)mask inRect:(CGRect)rect;
 
 @end

@@ -27,6 +27,7 @@ freeWhenDone:(BOOL)freeWhenDone;
 #import <Foundation/NSString_cString.h>
 #import <Foundation/NSString_nextstep.h>
 #import <Foundation/NSString_isoLatin1.h>
+#import <Foundation/NSString_win1252.h>
 #import <Foundation/NSStringSymbol.h>
 #import <Foundation/NSStringUTF8.h>
 #import <Foundation/NSUnicodeCaseMapping.h>
@@ -810,7 +811,8 @@ U+2029 (Unicode paragraph separator), \r\n, in that order (also known as CRLF)
       contentsEnd=end;
       state=gotR;
      }
-     else if(check==0x2028 || check==0x000A || check==0x2029){
+     // 0x0085 is undocumented, unicode next line
+     else if(check==0x2028 || check==0x000A || check==0x2029 || check==0x0085){
       contentsEnd=end;
       state=done;
      }
@@ -848,12 +850,74 @@ U+2029 (Unicode paragraph separator), \r\n, in that order (also known as CRLF)
 }
 
 -(void)getParagraphStart:(NSUInteger *)startp end:(NSUInteger *)endp contentsEnd:(NSUInteger *)contentsEndp forRange:(NSRange)range {
-   NSUnimplementedMethod();
+/*
+ Documentation does not specify exact getParagraphStart: behavior, only mentioning it is similar to getLineStart:
+ The difference is that getParagraphStart: does not delimit on line terminators 0x0085 and 0x2028
+ */
+   NSUInteger start=range.location;
+   NSUInteger end=NSMaxRange(range);
+   NSUInteger contentsEnd=end;
+   NSUInteger length=[self length];
+   unichar  buffer[length];
+   enum {
+    scanning,gotR,done
+   } state=scanning;
+
+   [self getCharacters:buffer];
+
+   for(;start!=0;start--) {
+    unichar check=buffer[start-1];
+
+    if(check==0x2028 || check==0x000A || check==0x2029)
+     break;
+
+    if(check==0x000D && buffer[start]!=0x000A)
+      break;
+   }
+
+   for(;end<length && state!=done;end++){
+    unichar check=buffer[end];
+
+    if(state==scanning){
+     if(check==0x000D){
+      contentsEnd=end;
+      state=gotR;
+     }
+     else if(check==0x000A || check==0x2029){
+      contentsEnd=end;
+      state=done;
+     }
+    }
+    else if(state==gotR){
+     if(check!=0x000A){
+      end--;
+     }
+     state=done;
+    }
+   }
+
+        if((end >= length) && (state!=done)) 
+                { 
+                contentsEnd = end;       
+                } 
+
+   if(startp!=NULL)
+    *startp=start;
+   if(endp!=NULL)
+    *endp=end;
+   if(contentsEndp!=NULL)
+    *contentsEndp=contentsEnd;
 }
 
 -(NSRange)paragraphRangeForRange:(NSRange)range {
-   NSUnimplementedMethod();
-   return NSMakeRange(0,0);
+   NSRange  result;
+   NSUInteger start,end;
+
+   [self getParagraphStart:&start end:&end contentsEnd:NULL forRange:range];
+   result.location=start;
+   result.length=end-start;
+
+   return result;
 }
 
 -(NSString *)substringWithRange:(NSRange)range {
@@ -1271,6 +1335,8 @@ U+2029 (Unicode paragraph separator), \r\n, in that order (also known as CRLF)
     buffer[0]=0xFEFF;
     return [NSData dataWithBytes:buffer length:(1+length)*sizeof(unichar)];
    }
+   else if(encoding==NSWindowsCP1252StringEncoding)
+	bytes=NSUnicodeToWin1252(unicode,length,lossy,&byteLength,zone);
    else {
     NSRaiseException(NSInvalidArgumentException, self, 
                      @selector(dataUsingEncoding:allowLossyConversion:),

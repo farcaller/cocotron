@@ -28,7 +28,8 @@ typedef enum {
    NSCursorUpdate,
    NSPlatformSpecific,
    NSAppKitSystem,
-   NSScrollWheel
+   NSScrollWheel,
+   NSApplicationDefined
 } NSEventType;
 
 enum {
@@ -47,6 +48,7 @@ enum {
    NSPeriodicMask=1<<NSPeriodic,
    NSCursorUpdateMask=1<<NSCursorUpdate,
    NSScrollWheelMask=1<<NSScrollWheel,
+   NSApplicationDefinedMask=1<<NSApplicationDefined,
    NSAnyEventMask=0xffffffff
 };
 
@@ -58,7 +60,8 @@ enum {
    NSCommandKeyMask=1<<20,
    NSNumericPadKeyMask=1<<21,
    NSHelpKeyMask=1<<22,
-   NSFunctionKeyMask=1<<23
+   NSFunctionKeyMask=1<<23,
+   NSDeviceIndependentModifierFlagsMask    = 0xffff0000UL
 };
 
 enum {
@@ -154,6 +157,9 @@ enum {
 
 +(NSEvent *)keyEventWithType:(NSEventType)type location:(NSPoint)location modifierFlags:(unsigned int)modifierFlags timestamp:(NSTimeInterval)timestamp windowNumber:(int)windowNumber context:(NSGraphicsContext *)context characters:(NSString *)characters charactersIgnoringModifiers:(NSString *)charactersIgnoringModifiers isARepeat:(BOOL)isARepeat keyCode:(unsigned short)keyCode;
 
++(NSEvent *)otherEventWithType:(NSEventType)type location:(NSPoint)location modifierFlags:(NSUInteger)flags timestamp:(NSTimeInterval)time windowNumber:(NSInteger)windowNum context:(NSGraphicsContext *)context subtype:(short)subtype data1:(NSInteger)data1 data2:(NSInteger)data2;
+
+
 -(NSEventType)type;
 -(NSTimeInterval)timestamp;
 -(NSPoint)locationInWindow;
@@ -171,6 +177,10 @@ enum {
 
 +(void)startPeriodicEventsAfterDelay:(NSTimeInterval)delay withPeriod:(NSTimeInterval)period;
 +(void)stopPeriodicEvents;
+
+-(short)subtype;
+-(NSInteger)data1;
+-(NSInteger)data2;
 
 @end
 

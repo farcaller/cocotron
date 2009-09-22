@@ -51,13 +51,11 @@ pointSize:10 color:color] autorelease];
 	[arrow drawAtPoint:point];
 }
 
--(NSRect)drawUnborderedButtonInRect:(NSRect)rect defaulted:(BOOL)defaulted {
+-(void)drawUnborderedButtonInRect:(NSRect)rect defaulted:(BOOL)defaulted {
    if(defaulted){
     [[NSColor blackColor] setFill];
     NSRectFill(rect);
-    rect = NSInsetRect(rect,1,1);
    }
-   return rect;
 }
 
 -(void)drawPushButtonNormalInRect:(NSRect)rect defaulted:(BOOL)defaulted {
@@ -210,31 +208,13 @@ pointSize:10 color:color] autorelease];
 -(void)drawProgressIndicatorIndeterminate:(NSRect)rect clipRect:(NSRect)clipRect bezeled:(BOOL)bezeled animation:(double)animation {
    if(bezeled)
     rect=[self drawProgressIndicatorBackground:rect clipRect:clipRect bezeled:bezeled];
-    
 
     NSRect progressRect = rect;
     NSRect blockRect = progressRect;
-    float percentage;
     int numBlocks;
-        
-    
-    {
-      float origin=(BLOCK_WIDTH+BLOCK_SPACING)*animation;
 
-        // draw fractional block, if visible..
-        if (origin > BLOCK_SPACING) {
-            blockRect.size.width = origin - BLOCK_SPACING;
-            NSRectFill(blockRect);
-        }
+    numBlocks = (animation * progressRect.size.width)/(BLOCK_WIDTH + BLOCK_SPACING);
 
-        // fixup origin
-        blockRect.origin.x += origin;
-
-    }
-
-    percentage = 1;
-    numBlocks = (percentage * progressRect.size.width)/(BLOCK_WIDTH + BLOCK_SPACING);
-    
     if (numBlocks > 0)
         numBlocks++;
 
@@ -245,8 +225,9 @@ pointSize:10 color:color] autorelease];
             blockRect.size.width -= (NSMaxX(blockRect) - NSMaxX(progressRect));
 
         if (blockRect.size.width > 0) {
-            [[NSColor selectedControlColor] setFill];
-            NSRectFill(blockRect);
+            if (numBlocks < 2) {
+               [self drawProgressIndicatorChunk:blockRect];
+            }
             blockRect.origin.x += BLOCK_WIDTH + BLOCK_SPACING;
         }
     }
@@ -321,7 +302,11 @@ pointSize:10 color:color] autorelease];
    [self drawScrollerTrackInRect:rect vertical:vertical upOrLeft:NO];
 }
 
--(void)drawSliderKnobInRect:(NSRect)rect vertical:(BOOL)vertical highlighted:(BOOL)highlighted {
+-(NSSize)sliderKnobSize {
+   return NSMakeSize(12,19); // this is Windows specific, uxtheme part size request was failing, hardcoded, sigh
+}
+
+-(void)drawSliderKnobInRect:(NSRect)rect vertical:(BOOL)vertical highlighted:(BOOL)highlighted hasTickMarks:(BOOL)hasTickMarks tickMarkPosition:(NSTickMarkPosition)tickMarkPosition {
    NSDrawButton(rect,rect);
 
    if(highlighted) {
@@ -330,7 +315,7 @@ pointSize:10 color:color] autorelease];
    }
 }
 
--(void)drawSliderTrackInRect:(NSRect)rect vertical:(BOOL)vertical {
+-(void)drawSliderTrackInRect:(NSRect)rect vertical:(BOOL)vertical hasTickMarks:(BOOL)hasTickMarks {
    NSRect groove=rect;
 
    if(vertical){

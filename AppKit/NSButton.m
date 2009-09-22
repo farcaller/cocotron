@@ -24,7 +24,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 }
 
 -(BOOL)isOpaque {
-   return ![_cell isTransparent] && [_cell isBordered];
+   return [_cell isOpaque];
 }
 
 -(BOOL)isTransparent {
@@ -168,7 +168,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 }
 
 -(void)setButtonType:(NSButtonType)value {
-   NSUnimplementedMethod();
+   [_cell setButtonType:value];
+   [self setNeedsDisplay:YES];
 }
 
 -(void)setTitleWithMnemonic:(NSString *)value {
@@ -193,7 +194,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
    if(![self isEnabled])
     return NO;
 
-   if((modifiers&(NSCommandKeyMask|NSAlternateKeyMask))==[self keyEquivalentModifierMask]){
+   if((modifiers&(NSCommandKeyMask|NSAlternateKeyMask))==[self keyEquivalentModifierMask]&(NSCommandKeyMask|NSAlternateKeyMask)){
     NSString *key=[self keyEquivalent];
 
     if([key isEqualToString:characters]){

@@ -17,6 +17,22 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
    return [NSImageCell class];
 }
 
+-target {
+   return _target;
+}
+
+-(SEL)action {
+   return _action;
+}
+
+-(void)setTarget:target {
+   _target=target;
+}
+
+-(void)setAction:(SEL)action {
+   _action=action;
+}
+
 -(BOOL)allowsCutCopyPaste {
    // Because cut, copy, paste isn't implemented yet ...
    return NO;
@@ -63,18 +79,22 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 -(void)setImage:(NSImage *)image {
    [_cell setImage:image];
+   [self setNeedsDisplay:YES];
 }
 
 -(void)setImageAlignment:(NSImageAlignment)alignment {
    [_cell setImageAlignment:alignment];
+   [self setNeedsDisplay:YES];
 }
 
 -(void)setImageFrameStyle:(NSImageFrameStyle)frameStyle {
    [_cell setImageFrameStyle:frameStyle];
+   [self setNeedsDisplay:YES];
 }
 
 -(void)setImageScaling:(NSImageScaling)scaling {
    [_cell setImageScaling:scaling];
+   [self setNeedsDisplay:YES];
 }
 
 @end

@@ -1,8 +1,8 @@
 #import "KGContext.h"
-#import "KGPath.h"
-#import "KGMutablePath.h"
-#import "KGColor.h"
-#import "KGColorSpace.h"
+#import "O2Path.h"
+#import "O2MutablePath.h"
+#import "O2Color.h"
+#import "O2ColorSpace.h"
 #import "KGImage.h"
 #import "KGImageSource.h"
 #import "KGDataProvider.h"
@@ -10,10 +10,10 @@
 #import "KGPDFPage.h"
 
 #define CGContextRef KGContext *
-#define CGColorRef KGColor *
-#define CGColorSpaceRef KGColorSpace *
-#define CGPathRef KGPath *
-#define CGMutablePathRef KGMutablePath *
+#define CGColorRef O2ColorRef
+#define CGColorSpaceRef O2ColorSpaceRef
+#define CGPathRef O2PathRef
+#define CGMutablePathRef O2MutablePathRef
 #define CGDataProviderRef KGDataProvider *
 #define CGImageRef KGImage *
 #define CGImageSourceRef KGImageSource *
@@ -275,136 +275,59 @@
    [self createImage]
 
 // CGPath
-#define CGPathRelease(self) \
-   [self release]
-
-#define CGPathRetain(self) \
-   [self retain]
-
-#define CGPathEqualToPath(self,other) \
-   [self isEqualToPath:other]
-
-#define CGPathGetBoundingBox(self) \
-   [self boundingBox]
-
-#define CGPathGetCurrentPoint(self) \
-   [self currentPoint]
-
-#define CGPathIsEmpty(self) \
-   [self isEmpty]
-
-#define CGPathIsRect(self,rect) \
-   [self isRect:rect]
-
-#define CGPathApply(self,info,fn) \
-   [self applyWithInfo:info function:fn]
-
-#define CGPathCreateMutableCopy(self) \
-   [self mutableCopy]
-
-#define CGPathCreateCopy(self) \
-   [self copy]
-
-#define CGPathContainsPoint(self,xform,pt,eo) \
-   [self containsPoint:pt evenOdd:eo withTransform:xform]
-
-#define CGPathCreateMutable(void) \
-   [[KGMutablePath alloc] init]
-
-#define CGPathMoveToPoint(self,xform,x,y) \
-   [self moveToPoint:CGPointMake(x,y) withTransform:xform]
-
-#define CGPathAddLineToPoint(self,xform,x,y) \
-   [self addLineToPoint:CGPointMake(x,y) withTransform:xform]
-
-#define CGPathAddCurveToPoint(self,xform,cp1x,cp1y,cp2x,cp2y,x,y) \
-   [self addCurveToControlPoint:CGPointMake(cp1x,cp1y) controlPoint:CGPointMake(cp2x,cp2y) endPoint:CGPointMake(x,y) withTransform:xform]
-
-#define CGPathAddQuadCurveToPoint(self,xform,cpx,cpy,x,y) \
-   [self addQuadCurveToControlPoint:CGPointMake(cpx,cpy) endPoint:CGPointMake(x,y) withTransform:xform]
-
-#define CGPathCloseSubpath(self) \
-   [self closeSubpath]
-
-#define CGPathAddLines(self,xform,points,pointCount) \
-   [self addLinesWithPoints:points count:pointCount withTransform:xform]
-
-#define CGPathAddRect(self,xform,rect) \
-   [self addRect:rect withTransform:xform]
-
-#define CGPathAddRects(self,xform,rects,rectCount) \
-   [self addRects:rects count:rectCount withTransform:xform]
-
-#define CGPathAddArc(self,xform,x,y,r,startRadian,endRadian,cw) \
-   [self addArcAtPoint:CGPointMake(x,y) radius:r startAngle:startRadian endAngle:endRadian clockwise:cw withTransform:xform]
-
-#define CGPathAddArcToPoint(self,xform,tx1,ty1,tx2,ty2,radius) \
-   [self addArcToPoint:CGPointMake(tx1,ty1) point:CGPointMake(tx2,ty2) radius:radius withTransform:xform]
-
-#define CGPathAddEllipseInRect(self,xform,rect) \
-   [self addEllipseInRect:rect withTransform:xform]
-
-#define CGPathAddPath(self,xform,other) \
-   [self addPath:other withTransform:xform]
-
+#define CGPathRelease O2PathRelease
+#define CGPathRetain O2PathRetain
+#define CGPathEqualToPath O2PathEqualToPath
+#define CGPathGetBoundingBox O2PathGetBoundingBox
+#define CGPathGetCurrentPoint O2PathGetCurrentPoint
+#define CGPathIsEmpty O2PathIsEmpty
+#define CGPathIsRect O2PathIsRect
+#define CGPathApply O2PathApply
+#define CGPathCreateMutableCopy O2PathCreateMutableCopy
+#define CGPathCreateCopy O2PathCreateCopy
+#define CGPathContainsPoint O2PathContainsPoint
+#define CGPathCreateMutable O2PathCreateMutable
+#define CGPathMoveToPoint O2PathMoveToPoint
+#define CGPathAddLineToPoint O2PathAddLineToPoint
+#define CGPathAddCurveToPoint O2PathAddCurveToPoint
+#define CGPathAddQuadCurveToPoint O2PathAddQuadCurveToPoint
+#define CGPathCloseSubpath O2PathCloseSubpath
+#define CGPathAddLines O2PathAddLines
+#define CGPathAddRect O2PathAddRect
+#define CGPathAddRects O2PathAddRects
+#define CGPathAddArc O2PathAddArc
+#define CGPathAddArcToPoint O2PathAddArcToPoint
+#define CGPathAddEllipseInRect O2PathAddEllipseInRect
+#define CGPathAddPath O2PathAddPath
 
 // CGColor
 
-#define CGColorRetain(self) \
-   [self retain]
-
-#define CGColorRelease(self) \
-   [self release]
-
-#define CGColorCreate(colorSpace,ccomponents) \
-   [[KGColor alloc] initWithColorSpace:colorSpace components:ccomponents]
-
-#define CGColorCreateGenericGray(gray,a) \
-   [[KGColor alloc] initWithDeviceGray:gray alpha:a]
-
-#define CGColorCreateGenericRGB(r,g,b,a) \
-   [[KGColor alloc] initWithDeviceRed:r green:g blue:b alpha:a]
-
-#define CGColorCreateGenericCMYK(c,m,y,k,a) \
-   [[KGColor alloc] initWithDeviceCyan:c magenta:m yellow:y black:k alpha:a]
-
-#define CGColorCreateWithPattern(colorSpace,pattern,ccomponents) \
-   [[KGColor alloc] initWithColorSpace:colorSpace pattern:pattern components:ccomponents]
-
-#define CGColorCreateCopy(self) \
-   [self copy]
-
-#define CGColorCreateCopyWithAlpha(self,a) \
-   [self copyWithAlpha:a]
-
-#define CGColorEqualToColor(self,other) \
-   [self isEqualToColor:other]
-
-#define CGColorGetColorSpace(self) \
-   [self colorSpace]
-
-#define CGColorGetNumberOfComponents(self) \
-   [self numberOfComponents]
-
-#define CGColorGetComponents(self) \
-   [self components]
-
-#define CGColorGetAlpha(self) \
-   [self alpha]
-
-#define CGColorGetPattern(self) \
-   [self pattern]
+#define CGColorRetain O2ColorRetain
+#define CGColorRelease O2ColorRelease
+#define CGColorCreate O2ColorCreate
+#define CGColorCreateGenericGray O2ColorCreateGenericGray
+#define CGColorCreateGenericRGB O2ColorCreateGenericRGB
+#define CGColorCreateGenericCMYK O2ColorCreateGenericCMYK
+#define CGColorCreateWithPattern O2ColorCreateWithPattern
+#define CGColorCreateCopy O2ColorCreateCopy
+#define CGColorCreateCopyWithAlpha O2ColorCreateCopyWithAlpha
+#define CGColorEqualToColor O2ColorEqualToColor
+#define CGColorGetColorSpace O2ColorGetColorSpace
+#define CGColorGetNumberOfComponents O2ColorGetNumberOfComponents
+#define CGColorGetComponents O2ColorGetComponents
+#define CGColorGetAlpha O2ColorGetAlpha
+#define CGColorGetPattern O2ColorGetPattern
 
 // CGColorSpace
 
 #define CGColorSpaceCreateDeviceRGB() \
-    [[KGColorSpace alloc] initWithDeviceRGB]
+    [[O2ColorSpace alloc] initWithDeviceRGB]
 
 #define CGColorSpaceCreateDeviceGray() \
-    [[KGColorSpace alloc] initWithDeviceGray]
+    [[O2ColorSpace alloc] initWithDeviceGray]
 
 #define CGColorSpaceCreateDeviceCMYK() \
-    [[KGColorSpace alloc] initWithDeviceCMYK]
+    [[O2ColorSpace alloc] initWithDeviceCMYK]
 
 // CGImage
 

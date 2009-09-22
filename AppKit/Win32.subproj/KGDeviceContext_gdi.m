@@ -7,11 +7,11 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/KGDeviceContext_gdi.h>
-#import <CoreGraphics/KGPath.h>
-#import <CoreGraphics/KGColor.h>
-#import <CoreGraphics/KGColorSpace.h>
+#import <CoreGraphics/O2Path.h>
+#import <CoreGraphics/O2Color.h>
+#import <CoreGraphics/O2ColorSpace.h>
 
-static inline void CMYKAToRGBA(float *input,float *output){
+static inline void CMYKAToRGBA(const float *input,float *output){
    float white=1-input[3];
    
    output[0]=(input[0]>white)?0:white-input[0];
@@ -41,19 +41,19 @@ static COLORREF gammaAdjustedRGBFromComponents(float r,float g,float b){
    return RGB(r*255,g*255,b*255);
 }
 
-COLORREF COLORREFFromColor(KGColor *color){
-   KGColorSpace *colorSpace=[color colorSpace];
-   float        *components=[color components];
+COLORREF COLORREFFromColor(O2Color *color){
+   O2ColorSpaceRef colorSpace=O2ColorGetColorSpace(color);
+   const float    *components=O2ColorGetComponents(color);
    
    switch([colorSpace type]){
 
-    case KGColorSpaceDeviceGray:
+    case O2ColorSpaceDeviceGray:
      return gammaAdjustedRGBFromComponents(components[0],components[0],components[0]);
      
-    case KGColorSpaceDeviceRGB:
+    case O2ColorSpaceDeviceRGB:
      return gammaAdjustedRGBFromComponents(components[0],components[1],components[2]);
      
-    case KGColorSpaceDeviceCMYK:{
+    case O2ColorSpaceDeviceCMYK:{
       float rgba[4];
       
       CMYKAToRGBA(components,rgba);
@@ -61,7 +61,7 @@ COLORREF COLORREFFromColor(KGColor *color){
      }
      break;
      
-     case KGColorSpacePlatformRGB:
+     case O2ColorSpacePlatformRGB:
      return RGB(components[0]*255,components[1]*255,components[2]*255);
           
     default:
@@ -99,7 +99,7 @@ static inline int float2int(float coord){
    return floorf(coord);
 }
 
--(void)establishDeviceSpacePath:(KGPath *)path withTransform:(CGAffineTransform)xform {
+-(void)establishDeviceSpacePath:(O2Path *)path withTransform:(CGAffineTransform)xform {
    unsigned             opCount=[path numberOfElements];
    const unsigned char *elements=[path elements];
    unsigned             pointCount=[path numberOfPoints];
@@ -169,7 +169,7 @@ static inline int float2int(float coord){
    DeleteObject(_clipRegion);
 }
 
--(void)clipToPath:(KGPath *)path withTransform:(CGAffineTransform)xform deviceTransform:(CGAffineTransform)deviceXFORM evenOdd:(BOOL)evenOdd {
+-(void)clipToPath:(O2Path *)path withTransform:(CGAffineTransform)xform deviceTransform:(CGAffineTransform)deviceXFORM evenOdd:(BOOL)evenOdd {
    XFORM current;
    XFORM userToDevice={deviceXFORM.a,deviceXFORM.b,deviceXFORM.c,deviceXFORM.d,deviceXFORM.tx,deviceXFORM.ty};
 
@@ -188,12 +188,12 @@ static inline int float2int(float coord){
     NSLog(@"SetWorldTransform failed");
 }
 
--(void)clipToNonZeroPath:(KGPath *)path withTransform:(CGAffineTransform)xform deviceTransform:(CGAffineTransform)deviceXFORM {
-   [self clipToPath:(KGPath *)path withTransform:(CGAffineTransform)xform deviceTransform:(CGAffineTransform)deviceXFORM evenOdd:NO];
+-(void)clipToNonZeroPath:(O2Path *)path withTransform:(CGAffineTransform)xform deviceTransform:(CGAffineTransform)deviceXFORM {
+   [self clipToPath:(O2Path *)path withTransform:(CGAffineTransform)xform deviceTransform:(CGAffineTransform)deviceXFORM evenOdd:NO];
 }
 
--(void)clipToEvenOddPath:(KGPath *)path withTransform:(CGAffineTransform)xform deviceTransform:(CGAffineTransform)deviceXFORM {
-   [self clipToPath:(KGPath *)path withTransform:(CGAffineTransform)xform deviceTransform:(CGAffineTransform)deviceXFORM evenOdd:YES];
+-(void)clipToEvenOddPath:(O2Path *)path withTransform:(CGAffineTransform)xform deviceTransform:(CGAffineTransform)deviceXFORM {
+   [self clipToPath:(O2Path *)path withTransform:(CGAffineTransform)xform deviceTransform:(CGAffineTransform)deviceXFORM evenOdd:YES];
 }
 
 -(void)beginPrintingWithDocumentName:(NSString *)name {

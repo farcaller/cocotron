@@ -12,7 +12,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #import <AppKit/NSEvent.h>
 #import <AppKit/NSWindow-Private.h>
 #import <AppKit/NSCursor.h>
-#import <AppKit/NSTrackingRect.h>
+#import <AppKit/NSTrackingArea.h>
 #import <AppKit/NSCursorRect.h>
 #import <AppKit/NSMenu.h>
 #import <AppKit/NSScrollView.h>
@@ -86,6 +86,7 @@ NSString *NSViewFocusDidChangeNotification=@"NSViewFocusDidChangeNotification";
     [_subviews makeObjectsPerformSelector:@selector(_setSuperview:) withObject:self];
     _invalidRect=_bounds;
     _defaultToolTipTag=-1;
+    _trackingAreas=[NSMutableArray new];
    }
    else {
     [NSException raise:NSInvalidArgumentException format:@"%@ can not initWithCoder:%@",isa,[coder class]];
@@ -113,7 +114,8 @@ NSString *NSViewFocusDidChangeNotification=@"NSViewFocusDidChangeNotification";
    _tag=-1;
    _invalidRect=_bounds;
    _defaultToolTipTag=-1;
-
+   _trackingAreas=[NSMutableArray new];
+   
    _validTransforms=NO;
    _transformFromWindow=CGAffineTransformIdentity;
    _transformToWindow=CGAffineTransformIdentity;
@@ -130,7 +132,8 @@ NSString *NSViewFocusDidChangeNotification=@"NSViewFocusDidChangeNotification";
 
    [_subviews release];
    [_draggedTypes release];
-	[self _unbindAllBindings];
+   [_trackingAreas release];
+   [self _unbindAllBindings];
 
    [super dealloc];
 }
@@ -257,6 +260,10 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 
 -(unsigned)autoresizingMask {
    return _autoresizingMask;
+}
+
+-(NSFocusRingType)focusRingType {
+   return _focusRingType;
 }
 
 -(int)tag {
@@ -629,6 +636,11 @@ static inline void buildTransformsIfNeeded(NSView *self) {
    _autoresizingMask=mask;
 }
 
+-(void)setFocusRingType:(NSFocusRingType)value {
+   _focusRingType=value;
+   [self setNeedsDisplay:YES];
+}
+
 -(void)setTag:(int)tag {
    _tag=tag;
 }
@@ -655,7 +667,6 @@ static inline void buildTransformsIfNeeded(NSView *self) {
     if ([self window] == nil)
         [NSException raise:NSInvalidArgumentException format:@"%@ cannot add tool tip rect before view is added to view hierarchy", NSStringFromSelector(_cmd)];
     
-    rect=[self convertRect:rect toView:nil];
     return [[self window] _addTrackingRect:rect view:self flipped:[self isFlipped] owner:object userData:userData assumeInside:NO isToolTip:YES];
 }
 
@@ -670,12 +681,10 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 -(void)addCursorRect:(NSRect)rect cursor:(NSCursor *)cursor {
-   rect=[self convertRect:rect toView:nil];
    [[self window] _addCursorRect:rect cursor:cursor view:self];
 }
 
 -(void)removeCursorRect:(NSRect)rect cursor:(NSCursor *)cursor {
-   rect=[self convertRect:rect toView:nil];
    [[self window] _removeCursorRect:rect cursor:cursor view:self];
 }
 
@@ -687,6 +696,21 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 
 -(void)resetCursorRects {
    // do nothing
+}
+
+-(NSArray *)trackingAreas {
+   return _trackingAreas;
+}
+
+-(void)addTrackingArea:(NSTrackingArea *)trackingArea {
+   [_trackingAreas addObject:trackingArea];
+}
+
+-(void)removeTrackingArea:(NSTrackingArea *)trackingArea {
+   [_trackingAreas removeObjectIdenticalTo:trackingArea];
+}
+
+-(void)updateTrackingAreas {
 }
 
 -(NSTrackingRectTag)addTrackingRect:(NSRect)rect owner:owner userData:(void *)userData assumeInside:(BOOL)assumeInside {

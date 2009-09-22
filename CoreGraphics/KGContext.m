@@ -9,9 +9,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #import "KGContext.h"
 #import "KGBitmapContext.h"
 #import "KGGraphicsState.h"
-#import "KGColor.h"
-#import "KGColorSpace.h"
-#import "KGMutablePath.h"
+#import "O2Color.h"
+#import "O2ColorSpace.h"
+#import "O2MutablePath.h"
 #import "KGLayer.h"
 #import "KGPDFPage.h"
 #import "KGClipPhase.h"
@@ -95,7 +95,7 @@ static NSMutableArray *possibleContextClasses=nil;
    return nil;
 }
 
-+(KGContext *)createWithBytes:(void *)bytes width:(size_t)width height:(size_t)height bitsPerComponent:(size_t)bitsPerComponent bytesPerRow:(size_t)bytesPerRow colorSpace:(KGColorSpace *)colorSpace bitmapInfo:(CGBitmapInfo)bitmapInfo {
++(KGContext *)createWithBytes:(void *)bytes width:(size_t)width height:(size_t)height bitsPerComponent:(size_t)bitsPerComponent bytesPerRow:(size_t)bytesPerRow colorSpace:(O2ColorSpaceRef)colorSpace bitmapInfo:(CGBitmapInfo)bitmapInfo {
    NSArray *array=[self allContextClasses];
    int      count=[array count];
    
@@ -140,7 +140,7 @@ static NSMutableArray *possibleContextClasses=nil;
    _layerStack=[NSMutableArray new];
    _stateStack=[NSMutableArray new];
    [_stateStack addObject:state];
-   _path=[[KGMutablePath alloc] init];
+   _path=[[O2MutablePath alloc] init];
    _allowsAntialiasing=YES;
    return self;
 }
@@ -181,30 +181,30 @@ static inline KGGraphicsState *currentState(KGContext *self){
 }
 
 -(BOOL)pathIsEmpty {
-   return (_path==nil)?YES:[_path isEmpty];
+   return (_path==nil)?YES:O2PathIsEmpty(_path);
 }
 
 -(CGPoint)pathCurrentPoint {
-   return (_path==nil)?CGPointZero:[_path currentPoint];
+   return (_path==nil)?CGPointZero:O2PathGetCurrentPoint(_path);
 }
 
 -(CGRect)pathBoundingBox {
-   return (_path==nil)?CGRectZero:[_path boundingBox];
+   return (_path==nil)?CGRectZero:O2PathGetBoundingBox(_path);
 }
 
 -(BOOL)pathContainsPoint:(CGPoint)point drawingMode:(int)pathMode {
    CGAffineTransform ctm=[currentState(self) userSpaceToDeviceSpaceTransform];
 
 // FIX  evenOdd
-   return [_path containsPoint:point evenOdd:NO withTransform:&ctm];
+   return O2PathContainsPoint(_path,&ctm,point,NO);
 }
 
 -(void)beginPath {
-   [_path reset];
+   O2PathReset(_path);
 }
 
 -(void)closePath {
-   [_path closeSubpath];
+   O2PathCloseSubpath(_path);
 }
 
 /* Path building is affected by the CTM, we transform them here into base coordinates (first quadrant, no transformation)
@@ -215,65 +215,67 @@ static inline KGGraphicsState *currentState(KGContext *self){
 -(void)moveToPoint:(float)x:(float)y {      
    CGAffineTransform ctm=[currentState(self) userSpaceTransform];
 
-   [_path moveToPoint:CGPointMake(x,y) withTransform:&ctm];
+   O2PathMoveToPoint(_path,&ctm,x,y);
 }
 
 -(void)addLineToPoint:(float)x:(float)y {
    CGAffineTransform ctm=[currentState(self) userSpaceTransform];
 
-   [_path addLineToPoint:CGPointMake(x,y) withTransform:&ctm];
+   O2PathAddLineToPoint(_path,&ctm,x,y);
 }
 
 -(void)addCurveToPoint:(float)cx1:(float)cy1:(float)cx2:(float)cy2:(float)x:(float)y {
    CGAffineTransform ctm=[currentState(self) userSpaceTransform];
 
-   [_path addCurveToControlPoint:CGPointMake(cx1,cy1) controlPoint:CGPointMake(cx2,cy2) endPoint:CGPointMake(x,y) withTransform:&ctm];
+   O2PathAddCurveToPoint(_path,&ctm,cx1,cy1,cx2,cy2,x,y);
 }
 
 -(void)addQuadCurveToPoint:(float)cx1:(float)cy1:(float)x:(float)y {
    CGAffineTransform ctm=[currentState(self) userSpaceTransform];
 
-   [_path addQuadCurveToControlPoint:CGPointMake(cx1,cy1) endPoint:CGPointMake(x,y) withTransform:&ctm];
+   O2PathAddQuadCurveToPoint(_path,&ctm,cx1,cy1,x,y);
 }
 
 -(void)addLinesWithPoints:(CGPoint *)points count:(unsigned)count {   
    CGAffineTransform ctm=[currentState(self) userSpaceTransform];
 
-   [_path addLinesWithPoints:points count:count withTransform:&ctm];
+   O2PathAddLines(_path,&ctm,points,count);
 }
 
 -(void)addRect:(CGRect)rect {
-   [self addRects:&rect count:1];
-}
-
--(void)addRects:(const CGRect *)rect count:(unsigned)count {   
    CGAffineTransform ctm=[currentState(self) userSpaceTransform];
 
-   [_path addRects:rect count:count withTransform:&ctm];
+   O2PathAddRect(_path,&ctm,rect);
+}
+
+-(void)addRects:(const CGRect *)rects count:(unsigned)count {   
+   CGAffineTransform ctm=[currentState(self) userSpaceTransform];
+
+   O2PathAddRects(_path,&ctm,rects,count);
 }
 
 -(void)addArc:(float)x:(float)y:(float)radius:(float)startRadian:(float)endRadian:(int)clockwise {
    CGAffineTransform ctm=[currentState(self) userSpaceTransform];
 
-   [_path addArcAtPoint:CGPointMake(x,y) radius:radius startAngle:startRadian endAngle:endRadian clockwise:clockwise withTransform:&ctm];
+   O2PathAddArc(_path,&ctm,x,y,radius,startRadian,endRadian,clockwise);
 }
 
 -(void)addArcToPoint:(float)x1:(float)y1:(float)x2:(float)y2:(float)radius {
    CGAffineTransform ctm=[currentState(self) userSpaceTransform];
 
-   [_path addArcToPoint:CGPointMake(x1,y1) point:CGPointMake(x2,y2) radius:radius withTransform:&ctm];
+   O2PathAddArcToPoint(_path,&ctm,x1,y1,x2,y2,radius);
 }
 
 -(void)addEllipseInRect:(CGRect)rect {
    CGAffineTransform ctm=[currentState(self) userSpaceTransform];
 
-   [_path addEllipseInRect:rect withTransform:&ctm];
+   O2PathAddEllipseInRect(_path,&ctm,rect);
 }
 
--(void)addPath:(KGPath *)path {
+-(void)addPath:(O2Path *)path {
    CGAffineTransform ctm=[currentState(self) userSpaceTransform];
 
-   [_path addPath:path withTransform:&ctm];
+   O2PathAddPath(_path,&ctm,path);
 }
 
 -(void)replacePathWithStrokedPath {
@@ -306,13 +308,13 @@ static inline KGGraphicsState *currentState(KGContext *self){
     switch([phase phaseType]){
     
      case KGClipPhaseNonZeroPath:{
-       KGPath *path=[phase object];
+       O2Path *path=[phase object];
        [self deviceClipToNonZeroPath:path];
       }
       break;
       
      case KGClipPhaseEOPath:{
-       KGPath *path=[phase object];
+       O2Path *path=[phase object];
        [self deviceClipToEvenOddPath:path];
       }
       break;
@@ -404,7 +406,7 @@ static inline KGGraphicsState *currentState(KGContext *self){
    
    [currentState(self) addClipToPath:_path];
    [self deviceClipToNonZeroPath:_path];
-   [_path reset];
+   O2PathReset(_path);
 }
 
 -(void)evenOddClipToPath {
@@ -413,7 +415,7 @@ static inline KGGraphicsState *currentState(KGContext *self){
 
    [currentState(self) addEvenOddClipToPath:_path];
    [self deviceClipToEvenOddPath:_path];
-   [_path reset];
+   O2PathReset(_path);
 }
 
 -(void)clipToMask:(KGImage *)image inRect:(CGRect)rect {
@@ -428,29 +430,43 @@ static inline KGGraphicsState *currentState(KGContext *self){
 -(void)clipToRects:(const CGRect *)rects count:(unsigned)count {   
    CGAffineTransform ctm=[currentState(self) userSpaceTransform];
 
-   [_path reset];
-   [_path addRects:rects count:count withTransform:&ctm];
+   O2PathReset(_path);
+   O2PathAddRects(_path,&ctm,rects,count);
    [self clipToPath];
 }
 
--(KGColor *)strokeColor {
+-(O2Color *)strokeColor {
    return [currentState(self) strokeColor];
 }
 
--(KGColor *)fillColor {
+-(O2Color *)fillColor {
    return [currentState(self) fillColor];
 }
 
--(void)setStrokeColorSpace:(KGColorSpace *)colorSpace {
-   KGColor *color=[[KGColor alloc] initWithColorSpace:colorSpace];
+-(void)setStrokeColorSpace:(O2ColorSpaceRef)colorSpace {
+   int   i,length=[colorSpace numberOfComponents];
+   CGFloat components[length+1];
+   
+   for(i=0;i<length;i++)
+    components[i]=0;
+   components[i]=1;
+
+   O2Color *color=O2ColorCreate(colorSpace,components);
    
    [self setStrokeColor:color];
    
    [color release];
 }
 
--(void)setFillColorSpace:(KGColorSpace *)colorSpace {
-   KGColor *color=[[KGColor alloc] initWithColorSpace:colorSpace];
+-(void)setFillColorSpace:(O2ColorSpaceRef)colorSpace {
+   int   i,length=[colorSpace numberOfComponents];
+   CGFloat components[length+1];
+   
+   for(i=0;i<length;i++)
+    components[i]=0;
+   components[i]=1;
+
+   O2Color *color=O2ColorCreate(colorSpace,components);
 
    [self setFillColor:color];
    
@@ -458,22 +474,22 @@ static inline KGGraphicsState *currentState(KGContext *self){
 }
 
 -(void)setStrokeColorWithComponents:(const float *)components {
-   KGColorSpace *colorSpace=[[self strokeColor] colorSpace];
-   KGColor      *color=[[KGColor alloc] initWithColorSpace:colorSpace components:components];
+   O2ColorSpaceRef colorSpace=O2ColorGetColorSpace([self strokeColor]);
+   O2Color      *color=O2ColorCreate(colorSpace,components);
    
    [self setStrokeColor:color];
    
    [color release];
 }
 
--(void)setStrokeColor:(KGColor *)color {
+-(void)setStrokeColor:(O2Color *)color {
    [currentState(self) setStrokeColor:color];
 }
 
 -(void)setGrayStrokeColor:(float)gray:(float)alpha {
-   KGColorSpace *colorSpace=[[KGColorSpace alloc] initWithDeviceGray];
+   O2ColorSpaceRef colorSpace=[[O2ColorSpace alloc] initWithDeviceGray];
    float         components[2]={gray,alpha};
-   KGColor      *color=[[KGColor alloc] initWithColorSpace:colorSpace components:components];
+   O2Color      *color=O2ColorCreate(colorSpace,components);
    
    [self setStrokeColor:color];
    
@@ -482,9 +498,9 @@ static inline KGGraphicsState *currentState(KGContext *self){
 }
 
 -(void)setRGBStrokeColor:(float)r:(float)g:(float)b:(float)alpha {
-   KGColorSpace *colorSpace=[[KGColorSpace alloc] initWithDeviceRGB];
+   O2ColorSpaceRef colorSpace=[[O2ColorSpace alloc] initWithDeviceRGB];
    float         components[4]={r,g,b,alpha};
-   KGColor      *color=[[KGColor alloc] initWithColorSpace:colorSpace components:components];
+   O2Color      *color=O2ColorCreate(colorSpace,components);
    
    [self setStrokeColor:color];
    
@@ -493,9 +509,9 @@ static inline KGGraphicsState *currentState(KGContext *self){
 }
 
 -(void)setCMYKStrokeColor:(float)c:(float)m:(float)y:(float)k:(float)alpha {
-   KGColorSpace *colorSpace=[[KGColorSpace alloc] initWithDeviceCMYK];
+   O2ColorSpaceRef colorSpace=[[O2ColorSpace alloc] initWithDeviceCMYK];
    float         components[5]={c,m,y,k,alpha};
-   KGColor      *color=[[KGColor alloc] initWithColorSpace:colorSpace components:components];
+   O2Color      *color=O2ColorCreate(colorSpace,components);
    
    [self setStrokeColor:color];
    
@@ -504,22 +520,22 @@ static inline KGGraphicsState *currentState(KGContext *self){
 }
 
 -(void)setFillColorWithComponents:(const float *)components {
-   KGColorSpace *colorSpace=[[self fillColor] colorSpace];
-   KGColor      *color=[[KGColor alloc] initWithColorSpace:colorSpace components:components];
+   O2ColorSpaceRef colorSpace=O2ColorGetColorSpace([self fillColor]);
+   O2Color      *color=O2ColorCreate(colorSpace,components);
    
    [self setFillColor:color];
    
    [color release];
 }
 
--(void)setFillColor:(KGColor *)color {
+-(void)setFillColor:(O2Color *)color {
    [currentState(self) setFillColor:color];
 }
 
 -(void)setGrayFillColor:(float)gray:(float)alpha {
-   KGColorSpace *colorSpace=[[KGColorSpace alloc] initWithDeviceGray];
+   O2ColorSpaceRef colorSpace=[[O2ColorSpace alloc] initWithDeviceGray];
    float         components[2]={gray,alpha};
-   KGColor      *color=[[KGColor alloc] initWithColorSpace:colorSpace components:components];
+   O2Color      *color=O2ColorCreate(colorSpace,components);
    
    [self setFillColor:color];
    
@@ -528,9 +544,9 @@ static inline KGGraphicsState *currentState(KGContext *self){
 }
 
 -(void)setRGBFillColor:(float)r:(float)g:(float)b:(float)alpha {
-   KGColorSpace *colorSpace=[[KGColorSpace alloc] initWithDeviceRGB];
+   O2ColorSpaceRef colorSpace=[[O2ColorSpace alloc] initWithDeviceRGB];
    float         components[4]={r,g,b,alpha};
-   KGColor      *color=[[KGColor alloc] initWithColorSpace:colorSpace components:components];
+   O2Color      *color=O2ColorCreate(colorSpace,components);
    
    [self setFillColor:color];
    
@@ -539,9 +555,9 @@ static inline KGGraphicsState *currentState(KGContext *self){
 }
 
 -(void)setCMYKFillColor:(float)c:(float)m:(float)y:(float)k:(float)alpha {
-   KGColorSpace *colorSpace=[[KGColorSpace alloc] initWithDeviceCMYK];
+   O2ColorSpaceRef colorSpace=[[O2ColorSpace alloc] initWithDeviceCMYK];
    float         components[5]={c,m,y,k,alpha};
-   KGColor      *color=[[KGColor alloc] initWithColorSpace:colorSpace components:components];
+   O2Color      *color=O2ColorCreate(colorSpace,components);
    
    [self setFillColor:color];
    
@@ -555,45 +571,45 @@ static inline KGGraphicsState *currentState(KGContext *self){
 }
 
 -(void)setStrokeAlpha:(float)alpha {
-   KGColor *color=[[self strokeColor] copyWithAlpha:alpha];
+   O2Color *color=O2ColorCreateCopyWithAlpha([self strokeColor],alpha);
    [self setStrokeColor:color];
    [color release];
 }
 
 -(void)setGrayStrokeColor:(float)gray {
-   float alpha=[[self strokeColor] alpha];
+   float alpha=O2ColorGetAlpha([self strokeColor]);
    
    [self setGrayStrokeColor:gray:alpha];
 }
 
 -(void)setRGBStrokeColor:(float)r:(float)g:(float)b {
-   float alpha=[[self strokeColor] alpha];
+   float alpha=O2ColorGetAlpha([self strokeColor]);
    [self setRGBStrokeColor:r:g:b:alpha];
 }
 
 -(void)setCMYKStrokeColor:(float)c:(float)m:(float)y:(float)k {
-   float alpha=[[self strokeColor] alpha];
+   float alpha=O2ColorGetAlpha([self strokeColor]);
    [self setCMYKStrokeColor:c:m:y:k:alpha];
 }
 
 -(void)setFillAlpha:(float)alpha {
-   KGColor *color=[[self fillColor] copyWithAlpha:alpha];
+   O2Color *color=O2ColorCreateCopyWithAlpha([self fillColor],alpha);
    [self setFillColor:color];
    [color release];
 }
 
 -(void)setGrayFillColor:(float)gray {
-   float alpha=[[self fillColor] alpha];
+   float alpha=O2ColorGetAlpha([self fillColor]);
    [self setGrayFillColor:gray:alpha];
 }
 
 -(void)setRGBFillColor:(float)r:(float)g:(float)b {
-   float alpha=[[self fillColor] alpha];
+   float alpha=O2ColorGetAlpha([self fillColor]);
    [self setRGBFillColor:r:g:b:alpha];
 }
 
 -(void)setCMYKFillColor:(float)c:(float)m:(float)y:(float)k {
-   float alpha=[[self fillColor] alpha];
+   float alpha=O2ColorGetAlpha([self fillColor]);
    [self setCMYKFillColor:c:m:y:k:alpha];
 }
 
@@ -633,7 +649,7 @@ static inline KGGraphicsState *currentState(KGContext *self){
    [currentState(self) setFontSize:size];
 }
 
--(void)selectFontWithName:(const char *)name size:(float)size encoding:(int)encoding {
+-(void)selectFontWithName:(const char *)name size:(float)size encoding:(CGTextEncoding)encoding {
    [currentState(self) selectFontWithName:name size:size encoding:encoding];
 }
 
@@ -677,7 +693,7 @@ static inline KGGraphicsState *currentState(KGContext *self){
    [currentState(self) setInterpolationQuality:quality];
 }
 
--(void)setShadowOffset:(CGSize)offset blur:(float)blur color:(KGColor *)color {
+-(void)setShadowOffset:(CGSize)offset blur:(float)blur color:(O2Color *)color {
    [currentState(self) setShadowOffset:offset blur:blur color:color];
 }
 
@@ -882,7 +898,7 @@ static inline KGGraphicsState *currentState(KGContext *self){
    return 0;
 }
 
--(KGColorSpace *)colorSpace {
+-(O2ColorSpaceRef)colorSpace {
    return nil;
 }
 
@@ -943,11 +959,11 @@ static inline KGGraphicsState *currentState(KGContext *self){
    KGInvalidAbstractInvocation();
 }
 
--(void)deviceClipToNonZeroPath:(KGPath *)path {
+-(void)deviceClipToNonZeroPath:(O2Path *)path {
    KGInvalidAbstractInvocation();
 }
 
--(void)deviceClipToEvenOddPath:(KGPath *)path {
+-(void)deviceClipToEvenOddPath:(O2Path *)path {
    KGInvalidAbstractInvocation();
 }
 

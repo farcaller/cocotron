@@ -10,7 +10,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #import <AppKit/AppKitExport.h>
 #import <AppKit/NSView.h>
 
-@class NSView, NSEvent, NSColor, NSCursor, NSImage, NSScreen, NSText, NSTextView, CGWindow, NSPasteboard, NSSheetContext, NSUndoManager, NSButton,NSButtonCell, NSDrawer, NSToolbar, NSWindowAnimationContext, NSTrackingRect, NSWindowBackgroundView,NSWindowController;
+@class NSView, NSEvent, NSColor, NSCursor, NSImage, NSScreen, NSText, NSTextView, CGWindow, NSPasteboard, NSSheetContext, NSUndoManager, NSButton,NSButtonCell, NSDrawer, NSToolbar, NSWindowAnimationContext, NSTrackingArea, NSWindowBackgroundView,NSWindowController, NSMenuItem;
 
 enum {
    NSBorderlessWindowMask=0x00,
@@ -49,6 +49,8 @@ APPKIT_EXPORT NSString *NSWindowDidMoveNotification;
 APPKIT_EXPORT NSString *NSWindowDidResizeNotification;
 APPKIT_EXPORT NSString *NSWindowDidUpdateNotification;
 APPKIT_EXPORT NSString *NSWindowWillCloseNotification;
+APPKIT_EXPORT NSString *NSWindowWillStartLiveResizeNotification;
+APPKIT_EXPORT NSString *NSWindowDidEndLiveResizeNotification;
 
 @interface NSWindow : NSResponder {
    NSRect             _frame;
@@ -147,7 +149,6 @@ APPKIT_EXPORT NSString *NSWindowWillCloseNotification;
    NSMutableArray *_drawers;
    NSToolbar *_toolbar;
    NSWindowAnimationContext *_animationContext;
-   NSTrackingRect *_trackedRect;
 }
 
 +(NSWindowDepth)defaultDepthLimit;

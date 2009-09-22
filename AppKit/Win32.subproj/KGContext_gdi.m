@@ -15,13 +15,15 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #import "Win32DeviceContextWindow.h"
 #import <CoreGraphics/KGGraphicsState.h>
 #import <AppKit/KGDeviceContext_gdi.h>
-#import <CoreGraphics/KGMutablePath.h>
-#import <CoreGraphics/KGColor.h>
-#import <CoreGraphics/KGColorSpace.h>
+#import <CoreGraphics/O2MutablePath.h>
+#import <CoreGraphics/O2Color.h>
+#import <CoreGraphics/O2ColorSpace.h>
+#import <CoreGraphics/KGDataProvider.h>
 #import <CoreGraphics/KGShading.h>
 #import <CoreGraphics/KGFunction.h>
-#import "KTFont_gdi.h"
-#import "../../CoreGraphics/KGImage.h"
+#import <CoreGraphics/KGContext_builtin.h>
+#import "KGFont_gdi.h"
+#import <CoreGraphics/KGImage.h>
 #import <CoreGraphics/KGClipPhase.h>
 #import <AppKit/Win32Font.h>
 #import <AppKit/NSRaise.h>
@@ -190,17 +192,12 @@ static RECT NSRectToRECT(NSRect rect) {
 }
 
 -(void)establishFontStateInDevice {
-   KTFont *font=[[self currentState] fontState];
+   KGGraphicsState *gState=[self currentState];
    [_gdiFont release];
-   _gdiFont=[[[self currentState] fontState] createGDIFontSelectedInDC:_dc];
+   _gdiFont=[(KGFont_gdi *)[gState font] createGDIFontSelectedInDC:_dc pointSize:[gState pointSize]];
 }
 
 -(void)establishFontState {
-   KGGraphicsState *state=[self currentState];
-   KTFont *fontState=[[KTFont_gdi alloc] initWithFont:[state font] size:[state pointSize]];
-
-   [state setFontState:fontState];
-   [fontState release];
    [self establishFontStateInDevice];
 }
 
@@ -229,24 +226,24 @@ static RECT NSRectToRECT(NSRect rect) {
    [_deviceContext clipReset];
 }
 
--(void)deviceClipToNonZeroPath:(KGPath *)path {
+-(void)deviceClipToNonZeroPath:(O2Path *)path {
    KGGraphicsState *state=[self currentState];
    [_deviceContext clipToNonZeroPath:path withTransform:CGAffineTransformInvert(state->_userSpaceTransform) deviceTransform:state->_deviceSpaceTransform];
 }
 
--(void)deviceClipToEvenOddPath:(KGPath *)path {
+-(void)deviceClipToEvenOddPath:(O2Path *)path {
    KGGraphicsState *state=[self currentState];
    [_deviceContext clipToEvenOddPath:path withTransform:CGAffineTransformInvert(state->_userSpaceTransform) deviceTransform:state->_deviceSpaceTransform];
 }
 
 -(void)deviceClipToMask:(KGImage *)mask inRect:(NSRect)rect {
-   NSUnimplementedMethod();
+// do nothing, see image drawing for how clip masks are used (1x1 alpha mask)
 }
 
--(void)drawPathInDeviceSpace:(KGPath *)path drawingMode:(int)mode state:(KGGraphicsState *)state {
+-(void)drawPathInDeviceSpace:(O2Path *)path drawingMode:(int)mode state:(KGGraphicsState *)state {
    CGAffineTransform deviceTransform=state->_deviceSpaceTransform;
-   KGColor *fillColor=state->_fillColor;
-   KGColor *strokeColor=state->_strokeColor;
+   O2Color *fillColor=state->_fillColor;
+   O2Color *strokeColor=state->_strokeColor;
    XFORM current;
    XFORM userToDevice={deviceTransform.a,deviceTransform.b,deviceTransform.c,deviceTransform.d,deviceTransform.tx,
                        (deviceTransform.d<0.0)?deviceTransform.ty/*-1.0*/:deviceTransform.ty};
@@ -337,34 +334,44 @@ static RECT NSRectToRECT(NSRect rect) {
 
    [self drawPathInDeviceSpace:_path drawingMode:pathMode state:[self currentState] ];
    
-   [_path reset];
+   O2PathReset(_path);
 }
 
 -(void)showGlyphs:(const CGGlyph *)glyphs count:(unsigned)count {
    CGAffineTransform transformToDevice=[self userSpaceToDeviceSpaceTransform];
-   CGAffineTransform Trm=CGAffineTransformConcat([self currentState]->_textTransform,transformToDevice);
+   KGGraphicsState  *gState=[self currentState];
+   CGAffineTransform Trm=CGAffineTransformConcat(gState->_textTransform,transformToDevice);
    NSPoint           point=CGPointApplyAffineTransform(NSMakePoint(0,0),Trm);
    
    SetTextColor(_dc,COLORREFFromColor([self fillColor]));
+
    ExtTextOutW(_dc,lroundf(point.x),lroundf(point.y),ETO_GLYPH_INDEX,NULL,(void *)glyphs,count,NULL);
+
+   KGFont *font=[gState font];
+   int     i,advances[count];
+   CGFloat unitsPerEm=CGFontGetUnitsPerEm(font);
    
-   KTFont_gdi *ktFont=[[self currentState] fontState];
-   NSSize advancement=[ktFont advancementForNominalGlyphs:glyphs count:count];
+   O2FontGetGlyphAdvances(font,glyphs,count,advances);
    
-   [self currentState]->_textTransform.tx+=advancement.width;
-   [self currentState]->_textTransform.ty+=advancement.height;
+   CGFloat total=0;
+   
+   for(i=0;i<count;i++)
+    total+=advances[i];
+    
+   total=(total/CGFontGetUnitsPerEm(font))*gState->_pointSize;
+      
+   [self currentState]->_textTransform.tx+=total;
+   [self currentState]->_textTransform.ty+=0;
 }
 
 -(void)showText:(const char *)text length:(unsigned)length {
-   unichar unicode[length];
-   CGGlyph glyphs[length];
-   int     i;
+   CGGlyph *encoding=[[self currentState] glyphTableForTextEncoding];
+   CGGlyph  glyphs[length];
+   int      i;
    
-// FIX, encoding
    for(i=0;i<length;i++)
-    unicode[i]=text[i];
+    glyphs[i]=encoding[(uint8_t)text[i]];
     
-   [[[self currentState] fontState] getGlyphs:glyphs forCharacters:unicode length:length];
    [self showGlyphs:glyphs count:length];
 }
 
@@ -396,8 +403,8 @@ static inline float axialBandIntervalFromMagnitude(KGFunction *function,float ma
 #endif
 
 -(void)drawInUserSpace:(CGAffineTransform)matrix axialShading:(KGShading *)shading {
-   KGColorSpace *colorSpace=[shading colorSpace];
-   KGColorSpaceType colorSpaceType=[colorSpace type];
+   O2ColorSpaceRef colorSpace=[shading colorSpace];
+   O2ColorSpaceType colorSpaceType=[colorSpace type];
    KGFunction   *function=[shading function];
    const float  *domain=[function domain];
    const float  *range=[function range];
@@ -435,16 +442,16 @@ static inline float axialBandIntervalFromMagnitude(KGFunction *function,float ma
 
    switch(colorSpaceType){
 
-    case KGColorSpaceDeviceGray:
+    case O2ColorSpaceDeviceGray:
      outputToRGBA=GrayAToRGBA;
      break;
      
-    case KGColorSpaceDeviceRGB:
-    case KGColorSpacePlatformRGB:
+    case O2ColorSpaceDeviceRGB:
+    case O2ColorSpacePlatformRGB:
      outputToRGBA=RGBAToRGBA;
      break;
      
-    case KGColorSpaceDeviceCMYK:
+    case O2ColorSpaceDeviceCMYK:
      outputToRGBA=CMYKAToRGBA;
      break;
      
@@ -566,7 +573,7 @@ static inline float axialBandIntervalFromMagnitude(KGFunction *function,float ma
 static int appendCircle(NSPoint *cp,int position,float x,float y,float radius,CGAffineTransform matrix){
    int i;
    
-   KGMutablePathEllipseToBezier(cp+position,x,y,radius,radius);
+   O2MutablePathEllipseToBezier(cp+position,x,y,radius,radius);
    for(i=0;i<13;i++)
     cp[position+i]=CGPointApplyAffineTransform(cp[position+i],matrix);
     
@@ -724,8 +731,8 @@ static void extend(HDC dc,int i,int direction,float bandInterval,NSPoint startPo
     - does not factor resolution/scaling can cause banding
     - does not factor color sampling rate, generates multiple bands for same color
  */
-   KGColorSpace *colorSpace=[shading colorSpace];
-   KGColorSpaceType colorSpaceType=[colorSpace type];
+   O2ColorSpaceRef colorSpace=[shading colorSpace];
+   O2ColorSpaceType colorSpaceType=[colorSpace type];
    KGFunction   *function=[shading function];
    const float  *domain=[function domain];
    const float  *range=[function range];
@@ -744,16 +751,16 @@ static void extend(HDC dc,int i,int direction,float bandInterval,NSPoint startPo
 
    switch(colorSpaceType){
 
-    case KGColorSpaceDeviceGray:
+    case O2ColorSpaceDeviceGray:
      outputToRGBA=GrayAToRGBA;
      break;
      
-    case KGColorSpaceDeviceRGB:
-    case KGColorSpacePlatformRGB:
+    case O2ColorSpaceDeviceRGB:
+    case O2ColorSpacePlatformRGB:
      outputToRGBA=RGBAToRGBA;
      break;
      
-    case KGColorSpaceDeviceCMYK:
+    case O2ColorSpaceDeviceCMYK:
      outputToRGBA=CMYKAToRGBA;
      break;
      
@@ -1071,8 +1078,27 @@ static void zeroBytes(void *bytes,int size){
 
 -(void)drawImage:(KGImage *)image inRect:(NSRect)rect {
    CGAffineTransform transformToDevice=[self userSpaceToDeviceSpaceTransform];
-  
-   [self drawBitmapImage:image inRect:rect ctm:transformToDevice fraction:[[self fillColor] alpha]];
+   KGGraphicsState *gState=[self currentState];
+   KGClipPhase     *phase=[[gState clipPhases] lastObject];
+   
+/* The NSImage drawing methods which take a fraction use a 1x1 alpha mask to set the fraction.
+   We don't do alpha masks yet but the rough fraction code already existed so we check for this
+   special case and generate a fraction from the 1x1 mask. Any other case is ignored.
+ */
+   float fraction=1.0;
+
+   if(phase!=nil && [phase phaseType]==KGClipPhaseMask){
+    KGImage *mask=[phase object];
+    
+    if([mask width]==1 && [mask height]==1){
+     uint8_t byte=255;
+     
+     if([[mask dataProvider] getBytes:&byte range:NSMakeRange(0,1)]==1)
+      fraction=(float)byte/255.0f;
+    }
+   }
+   
+   [self drawBitmapImage:image inRect:rect ctm:transformToDevice fraction:fraction];
 }
 
 -(void)drawDeviceContext:(KGDeviceContext_gdi *)deviceContext inRect:(NSRect)rect ctm:(CGAffineTransform)ctm {

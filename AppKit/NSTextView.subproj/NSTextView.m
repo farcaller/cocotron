@@ -50,6 +50,17 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
 - (void)endUserCompletion;
 @end
 
+@interface NSTextView()
+- (void) _replaceCharactersInRange: (NSRange)    range
+                        withString: (NSString *) string;
+
+- (BOOL) _delegateChangeTextInRange: (NSRange)    range
+                  replacementString: (NSString *) string;
+
+- (NSRange) _delegateChangeSelectionFromRange: (NSRange) from
+                                      toRange: (NSRange) to;
+@end
+
 @implementation NSTextView
 
 -(void)configureMenu {
@@ -106,6 +117,7 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
 
     _isFieldEditor=NO;
     _maxSize=[self bounds].size;
+    _minSize=NSMakeSize(0,0);
     _isHorizontallyResizable=NO;
     _isVerticallyResizable=YES;
     _selectedRange=NSMakeRange(0,0);
@@ -197,6 +209,8 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
    [_insertionPointTimer invalidate];
    [_insertionPointTimer release];
    [_selectedTextAttributes release];
+   [_fieldEditorUndoManager release];
+   [_undoString release];
    [super dealloc];
 }
 
@@ -336,7 +350,8 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
 
    NSRange oldRange=_selectedRange;
    
-   _selectedRange=range;
+   _selectedRange = [self _delegateChangeSelectionFromRange: oldRange
+                                                    toRange: range];
    _selectionAffinity=affinity;
    _selectionGranularity=NSSelectByCharacter;
    _insertionPointOn=[self shouldDrawInsertionPoint];
@@ -389,7 +404,7 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
 }
 
 - (void)insertCompletion:(NSString *)string forPartialWordRange:(NSRange)range movement:(int)movement isFinal:(BOOL)isFinal {
-    [self replaceCharactersInRange:range withString:string];
+    [self _replaceCharactersInRange:range withString:string];
 
     // is this proper behavior? i dunno
     _rangeForUserCompletion = NSMakeRange(range.location, [string length]);
@@ -461,7 +476,8 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
    if(![self isEditable])
     return NO;
 
-   return YES;
+   return [self _delegateChangeTextInRange: changeInRange
+                         replacementString: replacementString];
 }
 
 -(void)didChangeText {
@@ -610,12 +626,15 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
 }
 
 -(void)undo:sender {
-    if (_allowsUndo == YES)
+    if (_allowsUndo == YES) {
+        [self breakUndoCoalescing];
         [[self undoManager] undo];
+    }
 }
 
 -(void)redo:sender {
     if (_allowsUndo == YES) {
+        [self breakUndoCoalescing];
         [[self undoManager] redo];
         [self didChangeText];
     }
@@ -625,9 +644,13 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
    NSString *string=[[self string] substringWithRange:[self selectedRange]];
 
    if([string length]>0){
+    if (! [self _delegateChangeTextInRange: [self selectedRange]
+                         replacementString: @""])
+     return;
+	   
     [self writeSelectionToPasteboard:[NSPasteboard generalPasteboard] types:[self writablePasteboardTypes]];
 
-    [self replaceCharactersInRange:[self selectedRange] withString:@""];
+    [self _replaceCharactersInRange:[self selectedRange] withString:@""];
     [self didChangeText];
    }
 }
@@ -644,7 +667,11 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
    NSString *string=[[NSPasteboard generalPasteboard] stringForType: NSStringPboardType];
 
    if([string length]>0){
-    [self replaceCharactersInRange:[self selectedRange] withString:string];
+    if (! [self _delegateChangeTextInRange: [self selectedRange]
+                         replacementString: string])
+     return;
+	   
+    [self _replaceCharactersInRange:[self selectedRange] withString:string];
     [self didChangeText];
    }
 }
@@ -677,6 +704,13 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
 
 - (void)insertTabIgnoringFieldEditor:sender {
     [self insertText:@"\t"];
+}
+
+- (void)insertBacktab:sender {
+    if (_isFieldEditor) {
+        _textMovement = NSBacktabTextMovement;
+        [[self window] makeFirstResponder:[self window]];
+    }
 }
 
 // kind of hackish, not necessary if we don't want space bar as an NSButton performClick
@@ -1087,16 +1121,25 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
 }
 
 -(void)deleteForward:sender {
-   NSRange range=[self selectedRange];
+	NSRange range=[self selectedRange];
 
    if(range.length>0){
-    [self replaceCharactersInRange:range withString:@""];
+    if (! [self _delegateChangeTextInRange: range
+                         replacementString: @""])
+     return;
+	   
+    [self _replaceCharactersInRange: range withString: @""];
     [self didChangeText];
    }
    else {
     range.length=1;
+	   
+    if (! [self _delegateChangeTextInRange: range
+                         replacementString: @""])
+     return;
+	   
     if(NSMaxRange(range)<=[[self string] length]){		//TEST
-     [self replaceCharactersInRange:range withString:@""];
+     [self _replaceCharactersInRange:range withString:@""];
      [self didChangeText];
     }
    }
@@ -1107,13 +1150,23 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
    NSRange range=[self selectedRange];
 
    if(range.length>0){
-    [self replaceCharactersInRange:range withString:@""];
+	   
+    if (! [self _delegateChangeTextInRange: range
+                         replacementString: @""])
+     return;
+	   
+    [self _replaceCharactersInRange:range withString:@""];
     [self didChangeText];
    }
    else {
     if(range.location>0){
      range.location--;
-     [self replaceCharactersInRange:NSMakeRange(range.location,1) withString:@""];
+		
+     if (! [self _delegateChangeTextInRange: NSMakeRange(range.location, 1)
+                          replacementString: @""])
+      return;
+		
+     [self _replaceCharactersInRange:NSMakeRange(range.location,1) withString:@""];
      [self didChangeText];
     }
    }
@@ -1154,8 +1207,12 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
         range.length += delta;
     }
 
+    if (! [self _delegateChangeTextInRange: range
+                         replacementString: @""])
+        return;
+	
     [self _appendStringToKillBuffer:[[_textStorage string] substringWithRange:range]];
-    [self replaceCharactersInRange:range withString:@""];
+    [self _replaceCharactersInRange:range withString:@""];
     [self didChangeText];
 }
 
@@ -1167,8 +1224,12 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
     if (range.length == 0)		// "implemented to delete the selection, if there is one, *OR*
         range.length += delta;		// all text to the end of a line...
 
+    if (! [self _delegateChangeTextInRange: range
+                         replacementString: @""])
+        return;
+	
     [self _appendStringToKillBuffer:[[_textStorage string] substringWithRange:range]];
-    [self replaceCharactersInRange:range withString:@""];
+    [self _replaceCharactersInRange:range withString:@""];
     [self didChangeText];
 }
 
@@ -1183,8 +1244,12 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
         range.length += delta;
     }
     
+    if (! [self _delegateChangeTextInRange: range
+                         replacementString: @""])
+        return;
+	
     [self _appendStringToKillBuffer:[[_textStorage string] substringWithRange:range]];
-    [self replaceCharactersInRange:range withString:@""];
+    [self _replaceCharactersInRange:range withString:@""];
     [self didChangeText];
 }
 
@@ -1200,8 +1265,12 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
     if (range.length == 0)
         range.length += (NSMaxRange(lineRange) - NSMaxRange(range)) - 1;
 
+    if (! [self _delegateChangeTextInRange: range
+                         replacementString: @""])
+        return;
+
     [self _appendStringToKillBuffer:[[_textStorage string] substringWithRange:range]];
-    [self replaceCharactersInRange:range withString:@""];
+    [self _replaceCharactersInRange:range withString:@""];
     [self didChangeText];
 }
 
@@ -1230,7 +1299,11 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
         range.length += delta;
     }
 
-    [self replaceCharactersInRange:range withString:@""];
+    if (! [self _delegateChangeTextInRange: range
+                         replacementString: @""])
+        return;
+	
+    [self _replaceCharactersInRange:range withString:@""];
     [self didChangeText];
 }
 
@@ -1244,7 +1317,11 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
         range.length += delta;
     }
 
-    [self replaceCharactersInRange:range withString:@""];
+    if (! [self _delegateChangeTextInRange: range
+                         replacementString: @""])
+        return;
+	
+    [self _replaceCharactersInRange:range withString:@""];
     [self didChangeText];
 }
 
@@ -1555,15 +1632,21 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
 
         a = [string substringWithRange:NSMakeRange(range.location, 1)];
         b = [string substringWithRange:NSMakeRange(range.location-1, 1)];
-        [self replaceCharactersInRange:NSMakeRange(range.location, 1) withString:b];
-        [self replaceCharactersInRange:NSMakeRange(range.location-1, 1) withString:a];
 
+        NSString *transposed = [b stringByAppendingString: a];
 
+        if (! [self _delegateChangeTextInRange: NSMakeRange(range.location-1,2)
+                             replacementString: transposed])
+            return;
+
+        [self _replaceCharactersInRange: NSMakeRange(range.location-1, 2) 
+                             withString: transposed];
         [self _setAndScrollToRange:NSMakeRange(range.location+1, 0)];
     }
 }
 
 // ??? unclear as to how this works, seems to only make sense to me when on whitespace
+// should ask _delegateChangeTextInRange:replacementString: and use _replaceCharactersInRange:withString:
 - (void)transposeWords:sender {
     NSString *string = [_textStorage string];
     NSRange range = [self selectedRange];
@@ -1714,6 +1797,10 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
    return _maxSize;
 }
 
+-(NSSize)minSize {
+   return _minSize;
+}
+
 -(NSRange)selectedRange {
    return _selectedRange;
 }
@@ -1744,7 +1831,12 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
 }
 
 -(void)setString:(NSString *)string {
-   [self replaceCharactersInRange:NSMakeRange(0,[_textStorage length]) withString:string];
+    if (! [self _delegateChangeTextInRange: NSMakeRange(0,[_textStorage length])
+                         replacementString: string])
+        return;
+
+    [self _replaceCharactersInRange:NSMakeRange(0,[_textStorage length]) withString:string];
+	
 // this does not didChangeText
 }
 
@@ -1757,17 +1849,77 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
 }
 
 -(void)replaceCharactersInRange:(NSRange)range withString:(NSString *)string {
-    if (_allowsUndo && [[self undoManager] groupingLevel]>0) {
-        NSRange undoRange=range;
+     if (! [self _delegateChangeTextInRange: range
+                         replacementString: string])
+        return;
+ 
+    [self _replaceCharactersInRange: range withString: string];
+}
 
-        undoRange.length = [string length];
-
-        [[[self undoManager] prepareWithInvocationTarget:self] replaceCharactersInRange:undoRange withString:[[_textStorage string] substringWithRange:range]];
+-(void)_replaceCharactersInRange:(NSRange)range withString:(NSString *)string {
+  NSUndoManager * undoManager = [self undoManager];
+  
+  if (_firstResponderButNotEditingYet)
+    {
+      [[NSNotificationCenter defaultCenter] postNotificationName:NSTextDidBeginEditingNotification 
+                                                          object:self];
+      _firstResponderButNotEditingYet = NO;
     }
-
-    [_textStorage replaceCharactersInRange:range withString:string];
-    [_textStorage setAttributes:[self _stringAttributes] range:NSMakeRange(range.location,[string length])];
-    [self setSelectedRange:NSMakeRange(range.location+[string length],0)];
+  
+  if (_allowsUndo && [undoManager groupingLevel]>0) 
+    {
+      if (_processingKeyEvent && ![undoManager isUndoing] && ![undoManager isRedoing]) 
+        {
+          // Coalesce the undo registrations from adjacent key events.
+          
+          if (_undoString != nil 
+              && range.location == _undoRange.location + _undoRange.length 
+              && range.length == 0) // Typed characters at the end of the current range.
+            {
+              _undoRange.length += [string length];
+            } 
+          else if (_undoString != nil 
+                   && range.location + range.length == _undoRange.location + _undoRange.length 
+                   && [string length] == 0) // Deleted characters at the end of the current range.
+            {
+              if (range.length <= _undoRange.length)
+                {
+                  _undoRange.length -= range.length;
+                }
+              else // Deleted past the beginning of the current range; add deleted characters to start of text being replaced.
+                {
+                  NSRange rangeToPrepend = range;
+                  rangeToPrepend.length -= _undoRange.length;
+                  [_undoString autorelease];
+                  NSString * stringToPrepend = [[_textStorage string] substringWithRange:rangeToPrepend];
+                  _undoString = [stringToPrepend stringByAppendingString:_undoString];
+                  [_undoString retain];
+                  _undoRange.location -= rangeToPrepend.length;
+                  _undoRange.length = 0;
+                }
+            }
+          else 
+            {
+              // Start a new range for coalescing.
+              [self breakUndoCoalescing];
+              _undoRange = range;
+              _undoRange.length = [string length];
+              _undoString = [[[_textStorage string] substringWithRange:range] copy];
+            }
+        } 
+      else 
+        {
+          [self breakUndoCoalescing];
+          NSRange undoRange=range;
+          undoRange.length = [string length];
+          [[undoManager prepareWithInvocationTarget:self] replaceCharactersInRange:undoRange 
+                                                                        withString:[[_textStorage string] substringWithRange:range]];
+        }
+    }
+  
+  [_textStorage replaceCharactersInRange:range withString:string];
+  [_textStorage setAttributes:[self _stringAttributes] range:NSMakeRange(range.location,[string length])];
+  [self setSelectedRange:NSMakeRange(range.location+[string length],0)];
 }
 
 -(BOOL)readRTFDFromFile:(NSString *)path {
@@ -1779,6 +1931,10 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
 -(void)replaceCharactersInRange:(NSRange)range withRTF:(NSData *)rtf {
    NSAttributedString *astring=[NSRichTextReader attributedStringWithData:rtf];
 
+   if (! [self _delegateChangeTextInRange: range
+                        replacementString: [astring string]])
+       return;
+	
    [_textStorage replaceCharactersInRange:range withAttributedString:astring];
    [self setSelectedRange:NSMakeRange(range.location+[astring length],0)];
 }
@@ -1786,6 +1942,10 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
 -(void)replaceCharactersInRange:(NSRange)range withRTFD:(NSData *)rtfd {
    NSAttributedString *astring=[NSRichTextReader attributedStringWithData:rtfd];
 
+    if (! [self _delegateChangeTextInRange: range
+                         replacementString: [astring string]])
+        return;
+	
    [_textStorage replaceCharactersInRange:range withAttributedString:astring];
    [self setSelectedRange:NSMakeRange(range.location+[astring length],0)];
 }
@@ -1821,6 +1981,16 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
       _font=font;
    }
    [[self textStorage] addAttribute:NSFontAttributeName value:font range:range];
+}
+
+-(NSRange)_rangeForSelectedParagraph {
+   if(!_isRichText)
+    return NSMakeRange(0, [[self textStorage] length]);
+   else {
+    NSRange range=[self selectedRange];
+    
+    return [[[self textStorage] string] paragraphRangeForRange:range];
+   }
 }
 
 -(void)_setAlignment:(NSTextAlignment)alignment range:(NSRange)range {
@@ -1876,6 +2046,11 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
    _maxSize=size;
 }
 
+-(void)setMinSize:(NSSize)size {
+   _minSize=size;
+}
+
+
 -(void)setSelectedRange:(NSRange)range {
    [self setSelectedRange:range affinity:_selectionAffinity stillSelecting:NO];
 //   [self setSelectedRange:range affinity:NSSelectionAffinityUpstream stillSelecting:NO];
@@ -1915,11 +2090,17 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
 
    if(![self isHorizontallyResizable])
     size.width=[self frame].size.width;
+   else
+    size.width=MAX([self frame].size.width,size.width);
+    
    if(![self isVerticallyResizable])
     size.height=[self frame].size.height;
    else {
-    NSClipView *clipView=[self superview];
 
+    size.height=MAX([self frame].size.height,size.height);
+    
+    NSClipView *clipView=[self superview];
+    
     if([clipView isKindOfClass:[NSClipView class]]){
      if(size.height<[clipView bounds].size.height)
       size.height=[clipView bounds].size.height;
@@ -1952,23 +2133,26 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
 // making changes to textstorage attributes seems to wipe out the selection in this codebase,
 // the setSelectedRange calls shouldn't be neccessary
 - (void)alignCenter:sender {
-    NSRange range = _isRichText ? [self selectedRange] : NSMakeRange(0, [[self textStorage] length]);
-
-    [self _setAlignment:NSCenterTextAlignment range:range];
+    NSRange range=[self selectedRange];
+    [self _setAlignment:NSCenterTextAlignment range:[self _rangeForSelectedParagraph]];
     [self setSelectedRange:range];
 }
 
 - (void)alignLeft:sender {
-    NSRange range = _isRichText ? [self selectedRange] : NSMakeRange(0, [[self textStorage] length]);
-
-    [self _setAlignment:NSLeftTextAlignment range:range];    
+    NSRange range=[self selectedRange];
+    [self _setAlignment:NSLeftTextAlignment range:[self _rangeForSelectedParagraph]];    
     [self setSelectedRange:range];
 }
 
 - (void)alignRight:sender {
-    NSRange range = _isRichText ? [self selectedRange] : NSMakeRange(0, [[self textStorage] length]);
+    NSRange range=[self selectedRange];
+    [self _setAlignment:NSRightTextAlignment range:[self _rangeForSelectedParagraph]];    
+    [self setSelectedRange:range];
+}
 
-    [self _setAlignment:NSRightTextAlignment range:range];    
+- (void)alignJustified:sender {
+    NSRange range=[self selectedRange];
+    [self _setAlignment:NSJustifiedTextAlignment range:[self _rangeForSelectedParagraph]];    
     [self setSelectedRange:range];
 }
 
@@ -1987,6 +2171,7 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
    [self updateInsertionPointStateAndRestartTimer:YES];
    if([self shouldDrawInsertionPoint])
     [self _displayInsertionPointWithState:[[self window] isKeyWindow]];
+   _firstResponderButNotEditingYet = YES;
 
    return YES;
 }
@@ -2062,32 +2247,17 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
     if(![self shouldChangeTextInRange:[self selectedRange] replacementString:string])
         return;
     
-   [self replaceCharactersInRange:[self selectedRange] withString:string];
+   [self _replaceCharactersInRange:[self selectedRange] withString:string];
    [self didChangeText];
    [self scrollRangeToVisible:[self selectedRange]];
 }
 
 -(void)keyDown:(NSEvent *)event {
-#if 1
-    if([event type]==NSKeyDown && [self isEditable])
-     [self interpretKeyEvents:[NSArray arrayWithObject:event]];
-#else
-// would be nice to get event coalescing working
-   while(YES) {
-    if([event type]==NSKeyDown)
-     [self interpretKeyEvents:[NSArray arrayWithObject:event]];
-
-    event=[[self window] nextEventMatchingMask:NSAnyEventMask
-        untilDate:[NSDate distantFuture] inMode:NSDefaultRunLoopMode dequeue:NO];
-    if([event type]!=NSKeyDown &&
-       [event type]!=NSFlagsChanged &&
-       [event type]!=NSKeyUp)
-     break;
-
-    event=[[self window] nextEventMatchingMask:NSAnyEventMask
-        untilDate:[NSDate distantFuture] inMode:NSDefaultRunLoopMode dequeue:YES];
-   }
-#endif
+    if([event type]==NSKeyDown && [self isEditable]) {
+        _processingKeyEvent = YES;
+        [self interpretKeyEvents:[NSArray arrayWithObject:event]];
+        _processingKeyEvent = NO;
+    }
 }
 
 -(void)doCommandBySelector:(SEL)selector {
@@ -2203,15 +2373,18 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
 -(NSUndoManager *)undoManager {
     if ([_delegate respondsToSelector:@selector(undoManagerForTextView:)])
         return [_delegate undoManagerForTextView:self];
+    
+    if (_fieldEditorUndoManager)
+        return _fieldEditorUndoManager;
 
     return [super undoManager];
 }
 
 -(BOOL)validateMenuItem:(NSMenuItem *)item {
     if ([item action] == @selector(undo:))
-        return _allowsUndo ? [[self undoManager] canUndo] : NO;
+        return _allowsUndo ? [[self undoManager] canUndo] || (_undoString != nil) : NO;
     if ([item action] == @selector(redo:))
-        return _allowsUndo ? [[self undoManager] canRedo] : NO;
+        return _allowsUndo ? [[self undoManager] canRedo] && (_undoString == nil) : NO;
 
     return YES;
 }
@@ -2259,7 +2432,7 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
    if(fraction>=0.5)
     location++;
 
-   [self replaceCharactersInRange:NSMakeRange(location,0) withString:string];
+   [self _replaceCharactersInRange:NSMakeRange(location,0) withString:string];
    [self didChangeText];
 
    return YES;
@@ -2281,6 +2454,63 @@ NSString *NSOldSelectedCharacterRange=@"NSOldSelectedCharacterRange";
 -(NSUInteger)characterIndexForPoint:(NSPoint)point {
    NSUnimplementedMethod();
    return 0;
+}
+
+-(void)_setFieldEditorUndoManager:(NSUndoManager *)undoManager
+{
+    [_fieldEditorUndoManager autorelease];
+    _fieldEditorUndoManager = [undoManager retain];
+    [_undoString release];
+    _undoString = nil;
+}
+
+-(void)breakUndoCoalescing
+{
+  if (_undoString)
+    {
+      NSUndoManager * undoManager = [self undoManager];
+      [[undoManager prepareWithInvocationTarget:self] replaceCharactersInRange:_undoRange 
+                                                                    withString:_undoString];
+      [_undoString release];
+      _undoString = nil;
+      
+      [undoManager endUndoGrouping];
+      [undoManager beginUndoGrouping];
+    }
+}
+
+- (BOOL) _delegateChangeTextInRange: (NSRange)     range
+				  replacementString: (NSString *) string
+{
+    if ([_delegate respondsToSelector:
+         @selector(textView:shouldChangeTextInRange:replacementString:)])
+    {
+        if ([_delegate textView: self
+        shouldChangeTextInRange: range
+              replacementString: string] == NO)
+            return NO;
+    }
+
+    return YES;
+}		
+
+- (NSRange) _delegateChangeSelectionFromRange: (NSRange) from
+                                      toRange: (NSRange) to
+{
+    NSRange newSelectedRange;
+	
+    if ([_delegate respondsToSelector: @selector(textView:willChangeSelectionFromCharacterRange:toCharacterRange:)])
+    {
+        newSelectedRange = [_delegate textView: self
+         willChangeSelectionFromCharacterRange: from
+                              toCharacterRange: to];
+    }		
+    else
+    {
+        newSelectedRange = to;
+    }
+
+    return newSelectedRange;
 }
 
 @end

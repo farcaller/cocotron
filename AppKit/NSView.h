@@ -11,7 +11,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #import <AppKit/AppKitExport.h>
 #import <ApplicationServices/ApplicationServices.h>
 
-@class NSWindow, NSMenu, NSCursor, NSPasteboard, NSImage, NSScrollView;
+@class NSWindow, NSMenu, NSCursor, NSPasteboard, NSImage, NSScrollView, NSTrackingArea;
 
 typedef int NSTrackingRectTag;
 typedef int NSToolTipTag;
@@ -56,13 +56,14 @@ APPKIT_EXPORT NSString *NSViewFocusDidChangeNotification;
    NSArray        *_draggedTypes;
    NSToolTipTag    _defaultToolTipTag;
    NSString       *_toolTip;
-
+   NSMutableArray *_trackingAreas;
    NSRect          _invalidRect;
 
    BOOL              _validTransforms;
    CGAffineTransform _transformFromWindow;
    CGAffineTransform _transformToWindow;
    NSRect            _visibleRect;
+   NSFocusRingType   _focusRingType;
 }
 
 +(NSView *)focusView;
@@ -83,6 +84,7 @@ APPKIT_EXPORT NSString *NSViewFocusDidChangeNotification;
 -(NSArray *)subviews;
 -(BOOL)autoresizesSubviews;
 -(unsigned)autoresizingMask;
+-(NSFocusRingType)focusRingType;
 
 -(int)tag;
 -(BOOL)isFlipped;
@@ -132,6 +134,7 @@ APPKIT_EXPORT NSString *NSViewFocusDidChangeNotification;
 -(void)replaceSubview:(NSView *)oldView with:(NSView *)newView;
 -(void)setAutoresizesSubviews:(BOOL)flag;
 -(void)setAutoresizingMask:(unsigned int)mask;
+-(void)setFocusRingType:(NSFocusRingType)value;
 
 -(void)setTag:(int)tag;
 
@@ -146,6 +149,11 @@ APPKIT_EXPORT NSString *NSViewFocusDidChangeNotification;
 -(void)removeCursorRect:(NSRect)rect cursor:(NSCursor *)cursor;
 -(void)discardCursorRects;
 -(void)resetCursorRects;
+
+-(NSArray *)trackingAreas;
+-(void)addTrackingArea:(NSTrackingArea *)trackingArea;
+-(void)removeTrackingArea:(NSTrackingArea *)trackingArea;
+-(void)updateTrackingAreas;
 
 -(NSTrackingRectTag)addTrackingRect:(NSRect)rect owner:object userData:(void *)userData assumeInside:(BOOL)assumeInside;
 -(void)removeTrackingRect:(NSTrackingRectTag)tag;

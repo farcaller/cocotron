@@ -20,9 +20,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #import "KGShading+PDF.h"
 #import "KGImage+PDF.h"
 #import "KGFont+PDF.h"
-#import "KGMutablePath.h"
-#import "KGColor.h"
-#import "KGColorSpace+PDF.h"
+#import "O2MutablePath.h"
+#import "O2Color.h"
+#import "O2ColorSpace+PDF.h"
 #import "KGGraphicsState.h"
 #import <Foundation/NSProcessInfo.h>
 #import <Foundation/NSDictionary.h>
@@ -289,7 +289,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 }
 
 -(void)beginPath {
-   if(![_path isEmpty])
+   if(!O2PathIsEmpty(_path))
     [self contentWithString:@"n "];
    [super beginPath];
 }
@@ -409,7 +409,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
    [self _pathContentFromOperator:start];
 }
 
--(void)addPath:(KGPath *)path {
+-(void)addPath:(O2Path *)path {
    int start=[_path numberOfElements];
    [super addPath:path];
    [self _pathContentFromOperator:start];
@@ -463,41 +463,41 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
    [self clipToPath];
 }
 
--(void)setStrokeColor:(KGColor *)color {
-   const float *components=[color components];
+-(void)setStrokeColor:(O2Color *)color {
+   const float *components=O2ColorGetComponents(color);
    
-   switch([[color colorSpace] type]){
+   switch([O2ColorGetColorSpace(color) type]){
    
-    case KGColorSpaceDeviceGray:
+    case O2ColorSpaceDeviceGray:
      [self contentWithFormat:@"%f G ",components[0]];
      break;
      
-    case KGColorSpaceDeviceRGB:
-    case KGColorSpacePlatformRGB:
+    case O2ColorSpaceDeviceRGB:
+    case O2ColorSpacePlatformRGB:
      [self contentWithFormat:@"%f %f %f RG ",components[0],components[1],components[2]];
      break;
      
-    case KGColorSpaceDeviceCMYK:
+    case O2ColorSpaceDeviceCMYK:
      [self contentWithFormat:@"%f %f %f %f K ",components[0],components[1],components[2],components[3]];
      break;
    }
 }
 
--(void)setFillColor:(KGColor *)color {
-   const float *components=[color components];
+-(void)setFillColor:(O2Color *)color {
+   const float *components=O2ColorGetComponents(color);
    
-   switch([[color colorSpace] type]){
+   switch([O2ColorGetColorSpace(color) type]){
    
-    case KGColorSpaceDeviceGray:
+    case O2ColorSpaceDeviceGray:
      [self contentWithFormat:@"%f g ",components[0]];
      break;
      
-    case KGColorSpaceDeviceRGB:
-    case KGColorSpacePlatformRGB:
+    case O2ColorSpaceDeviceRGB:
+    case O2ColorSpacePlatformRGB:
      [self contentWithFormat:@"%f %f %f rg ",components[0],components[1],components[2]];
      break;
      
-    case KGColorSpaceDeviceCMYK:
+    case O2ColorSpaceDeviceCMYK:
      [self contentWithFormat:@"%f %f %f %f k ",components[0],components[1],components[2],components[3]];
      break;
    }
@@ -598,7 +598,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
    [super setInterpolationQuality:quality];
 }
 
--(void)setShadowOffset:(CGSize)offset blur:(float)blur color:(KGColor *)color {
+-(void)setShadowOffset:(CGSize)offset blur:(float)blur color:(O2Color *)color {
    [super setShadowOffset:offset blur:blur color:color];
    
 }
@@ -637,7 +637,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
      break;
          
    }
-   [_path reset];
+   O2PathReset(_path);
 }
 
 -(void)showGlyphs:(const CGGlyph *)glyphs count:(unsigned)count {

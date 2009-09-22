@@ -8,6 +8,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 #import <AppKit/NSText.h>
 #import <AppKit/NSGraphics.h>
+#import <AppKit/NSParagraphStyle.h>
 
 @class NSFont,NSImage,NSView;
 
@@ -64,12 +65,13 @@ typedef NSUInteger NSControlTint;
    id        _titleOrAttributedTitle;
    id        _representedObject;
    NSControlSize _controlSize;
-
+   NSFocusRingType _focusRingType;
+   NSLineBreakMode _lineBreakMode;
+   
    BOOL      _isEnabled;
    BOOL      _isEditable;
    BOOL      _isSelectable;
    BOOL      _isScrollable;
-   BOOL      _wraps;
    BOOL      _isBordered;
    BOOL      _isBezeled;
    BOOL      _isHighlighted;
@@ -78,6 +80,8 @@ typedef NSUInteger NSControlTint;
    BOOL      _allowsMixedState;
    BOOL      _sendsActionOnEndEditing;
 }
+
++(NSFocusRingType)defaultFocusRingType;
 
 -initTextCell:(NSString *)string;
 -initImageCell:(NSImage *)image;
@@ -116,6 +120,7 @@ typedef NSUInteger NSControlTint;
 -(NSAttributedString *)attributedStringValue;
 -(id)representedObject;
 -(NSControlSize)controlSize;
+-(NSFocusRingType)focusRingType;
 
 -(void)setType:(NSCellType)type;
 
@@ -157,6 +162,7 @@ typedef NSUInteger NSControlTint;
 -(void)setAttributedStringValue:(NSAttributedString *)value;
 -(void)setRepresentedObject:(id)object;
 -(void)setControlSize:(NSControlSize)size;
+-(void)setFocusRingType:(NSFocusRingType)focusRingType;
 
 -(void)takeObjectValueFrom:sender;
 -(void)takeStringValueFrom:sender;

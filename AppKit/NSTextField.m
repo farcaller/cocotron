@@ -12,11 +12,21 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #import <AppKit/NSCursor.h>
 #import <AppKit/NSPasteboard.h>
 #import <AppKit/NSDragging.h>
+#import "NSKeyValueBinding/NSTextFieldBinder.h"
+#import "NSKeyValueBinding/NSObject+BindingSupport.h"
 
 @implementation NSTextField
 
 +(Class)cellClass {
    return [NSTextFieldCell class];
+}
+
++(Class)_binderClassForBinding:(id)binding
+{
+  if ([binding isEqual:@"value"])
+    return [_NSTextFieldBinder class];
+  else
+    return [super _binderClassForBinding:binding];
 }
 
 -initWithCoder:(NSCoder *)coder {
@@ -155,6 +165,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
    if(movement==NSTabTextMovement)
     [[self window] selectKeyViewFollowingView:self];
+    
+   if (movement == NSBacktabTextMovement)
+    [[self window] selectKeyViewPrecedingView:self];
 }
 
 // FIX do we need this? selectText: seems to do the job for us

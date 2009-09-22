@@ -22,8 +22,14 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 #import <Foundation/NSLocale.h>
 #import <Foundation/NSNumberFormatter.h>
+#import "NSCellUndoManager.h"
+#import <AppKit/NSTextView.h>
 
 @implementation NSCell
+
++(NSFocusRingType)defaultFocusRingType {
+   return NSFocusRingTypeExterior;
+}
 
 -(void)encodeWithCoder:(NSCoder *)coder {
    NSUnimplementedMethod();
@@ -36,6 +42,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
     int                flags2=[keyed decodeIntForKey:@"NSCellFlags2"];
     id                 check;
     
+    _focusRingType=(flags&0x03);
     _state=(flags&0x80000000)?NSOnState:NSOffState;
     _isHighlighted=(flags&0x40000000)?YES:NO;
     _isEnabled=(flags&0x20000000)?NO:YES;
@@ -45,7 +52,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
     _isBezeled=(flags&0x00400000)?YES:NO;
     _isSelectable=(flags&0x00200000)?YES:NO;
     _isScrollable=(flags&0x00100000)?YES:NO;
-    _wraps=(flags&0x00100000)?NO:YES; // ! scrollable, use lineBreakMode ?
+   // _wraps=(flags&0x00100000)?NO:YES; // ! scrollable, use lineBreakMode ?
     _allowsMixedState=(flags2&0x1000000)?YES:NO;
     // 0x00080000 = continuous
     // 0x00040000 = action on mouse down
@@ -70,6 +77,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
     if (_font==nil)
        _font=[[NSFont userFontOfSize:13 - _controlSize*2] retain];
     _sendsActionOnEndEditing=(flags2&0x400000)?YES:NO;
+    _lineBreakMode=(flags2>>9)&0x7;
    }
    else {
     [NSException raise:NSInvalidArgumentException format:@"%@ can not initWithCoder:%@",isa,[coder class]];
@@ -79,6 +87,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 -initTextCell:(NSString *)string {
 
+   _focusRingType=[isa defaultFocusRingType];
    _state=NSOffState;
    _font=[[NSFont userFontOfSize:0] retain];
    _objectValue=[string copy];
@@ -87,17 +96,17 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
    _isEnabled=YES;
    _isEditable=NO;
    _isSelectable=NO;
-   _wraps=NO;
    _isBordered=NO;
    _isBezeled=NO;
    _isHighlighted=NO;
    _refusesFirstResponder=NO;
-
+   _lineBreakMode=NSLineBreakByWordWrapping;
    return self;
 }
 
 -initImageCell:(NSImage *)image {
 
+   _focusRingType=[isa defaultFocusRingType];
    _state=NSOffState;
    _font=nil;
    _objectValue=nil;
@@ -106,12 +115,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
    _isEnabled=YES;
    _isEditable=NO;
    _isSelectable=NO;
-   _wraps=NO;
    _isBordered=NO;
    _isBezeled=NO;
    _isHighlighted=NO;
    _refusesFirstResponder=NO;
-
+   _lineBreakMode=NSLineBreakByWordWrapping;
    return self;
 }
 
@@ -200,7 +208,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 }
 
 -(BOOL)wraps {
-   return _wraps;
+   return (_lineBreakMode==NSLineBreakByWordWrapping || _lineBreakMode==NSLineBreakByCharWrapping)?YES:NO;
 }
 
 -(NSString *)title {
@@ -322,8 +330,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
                      forKey:NSForegroundColorAttributeName];
     }
 
-    if(![self wraps])
-     [paraStyle setLineBreakMode:NSLineBreakByClipping];
+    [paraStyle setLineBreakMode:_lineBreakMode];
     [paraStyle setAlignment:_textAlignment];
     [attributes setObject:paraStyle forKey:NSParagraphStyleAttributeName];
 
@@ -335,8 +342,12 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
     return _representedObject;
 }
 
-- (NSControlSize)controlSize {
+-(NSControlSize)controlSize {
     return _controlSize;
+}
+
+-(NSFocusRingType)focusRingType {
+    return _focusRingType;
 }
 
 -(void)setType:(NSCellType)type {
@@ -435,7 +446,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 }
 
 -(void)setWraps:(BOOL)wraps {
-   _wraps=wraps;
+   _lineBreakMode=wraps?NSLineBreakByWordWrapping:NSLineBreakByClipping;
 }
 
 -(void)setTitle:(NSString *)title {
@@ -472,6 +483,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 -(void)setBordered:(BOOL)flag {
    _isBordered=flag;
+   _isBezeled=NO;
 }
 
 -(void)setBezeled:(BOOL)flag {
@@ -561,11 +573,15 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
     _representedObject = object;
 }
 
-- (void)setControlSize:(NSControlSize)size {
+-(void)setControlSize:(NSControlSize)size {
    _controlSize = size;
    [_font release];
    _font = [[NSFont userFontOfSize:13 - _controlSize*2] retain];
    [(NSControl *)[self controlView] updateCell:self];
+}
+
+-(void)setFocusRingType:(NSFocusRingType)focusRingType {
+   _focusRingType = focusRingType;
 }
 
 -(void)takeObjectValueFrom:sender {
@@ -734,6 +750,14 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
    }
    [[view window] makeFirstResponder:editor];
    [editor setDelegate:delegate];
+  
+   if ([editor isKindOfClass:[NSTextView class]]) {
+    NSCellUndoManager * undoManager = [[NSCellUndoManager alloc] init];
+    [undoManager setNextUndoManager:[[view window] undoManager]];
+    [(NSTextView *)editor _setFieldEditorUndoManager:undoManager];
+    [undoManager release];
+    [(NSTextView *)editor setAllowsUndo:YES];
+   }
 }
 
 -(void)editWithFrame:(NSRect)frame inView:(NSView *)view editor:(NSText *)editor delegate:(id)delegate event:(NSEvent *)event {

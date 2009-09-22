@@ -149,6 +149,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
    [_alternateTitle release];
    [_alternateImage release];
    [_keyEquivalent release];
+   [_sound release];
+   [_keyEquivalentFont release];
+   [_backgroundColor release];
    [super dealloc];
 }
 
@@ -158,7 +161,10 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
    result->_alternateTitle =[_alternateTitle copy];
    result->_alternateImage=[_alternateImage retain];
    result->_keyEquivalent=[_keyEquivalent copy];
-
+   result->_sound=[_sound retain];
+   result->_keyEquivalentFont=[_keyEquivalentFont retain];
+   result->_backgroundColor=[_backgroundColor retain];
+   
    return result;
 }
 
@@ -200,8 +206,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
     if(font!=nil)
      [attributes setObject:font forKey:NSFontAttributeName];
 
-    if(![self wraps])
-     [paraStyle setLineBreakMode:NSLineBreakByClipping];
+    [paraStyle setLineBreakMode:_lineBreakMode];
     [paraStyle setAlignment:_textAlignment];
     [attributes setObject:paraStyle forKey:NSParagraphStyleAttributeName];
 
@@ -224,8 +229,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
    if(font!=nil)
     [attributes setObject:font forKey:NSFontAttributeName];
 
-   if(![self wraps])
-    [paraStyle setLineBreakMode:NSLineBreakByClipping];
+   [paraStyle setLineBreakMode:_lineBreakMode];
    [paraStyle setAlignment:_textAlignment];
    [attributes setObject:paraStyle forKey:NSParagraphStyleAttributeName];
 
@@ -266,6 +270,31 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 -(NSSound *)sound {
    return _sound;
+}
+
+-(NSGradientType)gradientType {
+   return _gradientType;
+}
+
+-(NSImageScaling)imageScaling {
+   return _imageScaling;
+}
+
+-(BOOL)isOpaque {
+   return ![self isTransparent] && [self isBordered];
+}
+
+-(NSFont *)keyEquivalentFont {
+   return _keyEquivalentFont;
+}
+
+-(NSColor *)backgroundColor {
+   return _backgroundColor;
+}
+
+-(void)getPeriodicDelay:(float *)delay interval:(float *)interval {
+   *delay=_periodicDelay;
+   *interval=_periodicInterval;
 }
 
 -(int)state {
@@ -432,6 +461,36 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
    _sound=sound;
 }
 
+-(void)setGradientType:(NSGradientType)value {
+   _gradientType=value;
+}
+
+-(void)setBackgroundColor:(NSColor *)value {
+   value=[value copy];
+   [_backgroundColor release];
+   _backgroundColor=value;
+}
+
+-(void)setImageScaling:(NSImageScaling)value {
+   _imageScaling=value;
+}
+
+-(void)setKeyEquivalentFont:(NSFont *)value {
+   value=[value retain];
+   [_keyEquivalentFont release];
+   _keyEquivalentFont=value;
+}
+
+-(void)setKeyEquivalentFont:(NSString *)value size:(CGFloat)size {
+   NSFont *font=[NSFont fontWithName:value size:size];
+   [self setKeyEquivalentFont:font];
+}
+
+-(void)setPeriodicDelay:(float)delay interval:(float)interval {
+   _periodicDelay=delay;
+   _periodicInterval=interval;
+}
+
 -(NSAttributedString *)titleForHighlight {
    if((([self highlightsBy]&NSContentsCellMask) && [self isHighlighted]) ||
       (([self showsStateBy]&NSContentsCellMask) && [self state])){
@@ -468,109 +527,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 -(BOOL)isVisuallyHighlighted {
    return ((([self highlightsBy]&NSChangeGrayCellMask) && [self isHighlighted]) ||
            (([self showsStateBy]&NSChangeGrayCellMask) && [self state]));
-}
-
--(void)drawInteriorWithFrame:(NSRect)frame inView:(NSView *)controlView {
-   NSAttributedString *title=[self titleForHighlight];
-   NSImage            *image=[self imageForHighlight];
-   BOOL                enabled=[self isEnabled]?YES:![self imageDimsWhenDisabled];
-   BOOL                mixed=([self state]==NSMixedState)?YES:NO;
-   NSSize              imageSize=(image==nil)?NSMakeSize(0,0):[[controlView graphicsStyle] sizeOfButtonImage:image enabled:enabled mixed:mixed];
-   NSPoint             imageOrigin=frame.origin;
-   NSSize              titleSize=[title size];
-   NSRect              titleRect=frame;
-   BOOL                drawImage=YES,drawTitle=YES;
-
-   if([self isTransparent])
-    return;
-
-   imageOrigin.x+=floor((frame.size.width-imageSize.width)/2);
-   imageOrigin.y+=floor((frame.size.height-imageSize.height)/2);
-
-   titleRect.origin.y+=floor((titleRect.size.height-titleSize.height)/2);
-   titleRect.size.height=titleSize.height;
-
-   switch([self imagePosition]){
-
-    case NSNoImage:
-     drawImage=NO;
-     break;
-
-    case NSImageOnly:
-     drawTitle=NO;
-     break;
-
-    case NSImageLeft:
-     imageOrigin.x=frame.origin.x;
-     titleRect.origin.x+=imageSize.width+4;
-     titleRect.size.width-=imageSize.width+4;
-     break;
-
-    case NSImageRight:
-     imageOrigin.x=frame.origin.x+(frame.size.width-imageSize.width);
-     titleRect.size.width-=(imageSize.width+4);
-     break;
-
-    case NSImageBelow:
-     imageOrigin.y=frame.origin.y;
-     titleRect.origin.y+=imageSize.height;
-     break;
-
-    case NSImageAbove:
-     imageOrigin.y=frame.origin.y+(frame.size.height-imageSize.height);
-     titleRect.origin.y-=imageSize.height;
-     if(titleRect.origin.y<frame.origin.y)
-      titleRect.origin.y=frame.origin.y;
-     break;
-
-    case NSImageOverlaps:
-     break;
-   }
-
-   if(![self isBordered]){
-    if([self isVisuallyHighlighted]){
-     [[NSColor whiteColor] setFill];
-     NSRectFill(frame);
-    }
-   }
-
-   if([self isBordered]){
-    if(([self highlightsBy]&NSPushInCellMask) && [self isHighlighted]){
-     imageOrigin.x+=1;
-     imageOrigin.y+=[controlView isFlipped]?1:-1;
-     titleRect.origin.x+=1;
-     titleRect.origin.y+=[controlView isFlipped]?1:-1;
-    }
-   }
-
-   if(drawImage){
-    NSRect rect=NSMakeRect(imageOrigin.x,imageOrigin.y,imageSize.width,imageSize.height);
-    
-    [[controlView graphicsStyle] drawButtonImage:image inRect:rect enabled:enabled mixed:mixed];
-   }
-
-   if(drawTitle){
-    BOOL drawDottedRect=NO;
-
-    [title _clipAndDrawInRect:titleRect];
-
-    if([[controlView window] firstResponder]==controlView){
-
-     if([controlView isKindOfClass:[NSMatrix class]]){
-      NSMatrix *matrix=(NSMatrix *)controlView;
-
-      drawDottedRect=([matrix keyCell]==self)?YES:NO;
-     }
-     else if([controlView isKindOfClass:[NSControl class]]){
-      NSControl *control=(NSControl *)controlView;
-
-      drawDottedRect=([control selectedCell]==self)?YES:NO;
-     }
-    }
-
-    if(drawDottedRect)
-     NSDottedFrameRect(NSInsetRect(titleRect,1,1));
-   }
 }
 
 -(NSRect)getControlSizeAdjustment: (BOOL)flipped
@@ -645,6 +601,178 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 	return frame;
 }
 
+
+-(void)drawBezelWithFrame:(NSRect)frame inView:(NSView *)controlView {
+   BOOL defaulted=([[controlView window] defaultButtonCell] == self);
+
+   NSRect adjustment = [self getControlSizeAdjustment:[controlView isFlipped] ];
+   frame.size.width -= adjustment.size.width;
+   frame.size.height -= adjustment.size.height;
+   frame.origin.x += adjustment.origin.x;
+   frame.origin.y += adjustment.origin.y;
+   
+   switch(_bezelStyle){
+   
+    case NSDisclosureBezelStyle:
+// FIX The background isn't getting erased during pressing ? shouldn't the view be doing this during tracking ?
+     [[NSColor controlColor] setFill];
+     NSRectFill(frame);
+     break;
+     
+    default:
+     if(![self isBordered]){
+      [[_controlView graphicsStyle] drawUnborderedButtonInRect:frame defaulted:defaulted];
+     }
+     else {
+      if(([self highlightsBy]&NSPushInCellMask) && [self isHighlighted])
+       [[_controlView graphicsStyle] drawPushButtonPressedInRect:frame];
+      else if([self isVisuallyHighlighted])
+       [[_controlView graphicsStyle] drawPushButtonHighlightedInRect:frame];
+      else
+       [[_controlView graphicsStyle] drawPushButtonNormalInRect:frame defaulted:defaulted];
+     }
+     break;
+   }
+}
+
+-(void)drawImage:(NSImage *)image withFrame:(NSRect)rect inView:(NSView *)controlView {
+   BOOL enabled=[self isEnabled]?YES:![self imageDimsWhenDisabled];
+   BOOL mixed=([self state]==NSMixedState)?YES:NO;
+   
+   CGContextRef ctx=[[NSGraphicsContext currentContext] graphicsPort];
+   CGContextSaveGState(ctx);
+   CGContextTranslateCTM(ctx,rect.origin.x,rect.origin.y);
+   if([controlView isFlipped]){
+    CGContextTranslateCTM(ctx,0,rect.size.height);
+    CGContextScaleCTM(ctx,1,-1);
+   }
+   [[controlView graphicsStyle] drawButtonImage:image inRect:NSMakeRect(0,0,rect.size.width,rect.size.height) enabled:enabled mixed:mixed];
+   CGContextRestoreGState(ctx);
+}
+
+-(void)drawInteriorWithFrame:(NSRect)frame inView:(NSView *)controlView {
+/* This method gets the original button frame. We have to compensate for borders.
+   There is some duplication of rect calculation which can be split out
+ */
+   BOOL defaulted=([[controlView window] defaultButtonCell] == self);
+   NSRect adjustment = [self getControlSizeAdjustment:[controlView isFlipped] ];
+   frame.size.width -= adjustment.size.width;
+   frame.size.height -= adjustment.size.height;
+   frame.origin.x += adjustment.origin.x;
+   frame.origin.y += adjustment.origin.y;
+   
+   if(_bezelStyle==NSDisclosureBezelStyle)
+    ;
+   else if(![self isBordered]){
+    if(defaulted)
+     frame = NSInsetRect(frame,1,1);
+   }
+   else {
+    frame=NSInsetRect(frame,2,2);
+   }
+
+
+   NSAttributedString *title=[self titleForHighlight];
+   NSImage            *image=[self imageForHighlight];
+   BOOL                enabled=[self isEnabled]?YES:![self imageDimsWhenDisabled];
+   BOOL                mixed=([self state]==NSMixedState)?YES:NO;
+   NSSize              imageSize=(image==nil)?NSMakeSize(0,0):[[controlView graphicsStyle] sizeOfButtonImage:image enabled:enabled mixed:mixed];
+   NSPoint             imageOrigin=frame.origin;
+   NSSize              titleSize=[title size];
+   NSRect              titleRect=frame;
+   BOOL                drawImage=YES,drawTitle=YES;
+
+   if([self isTransparent])
+    return;
+
+   imageOrigin.x+=floor((frame.size.width-imageSize.width)/2);
+   imageOrigin.y+=floor((frame.size.height-imageSize.height)/2);
+
+   titleRect.origin.y+=floor((titleRect.size.height-titleSize.height)/2);
+   titleRect.size.height=titleSize.height;
+
+   switch([self imagePosition]){
+
+    case NSNoImage:
+     drawImage=NO;
+     break;
+
+    case NSImageOnly:
+     drawTitle=NO;
+     break;
+
+    case NSImageLeft:
+     imageOrigin.x=frame.origin.x;
+     titleRect.origin.x+=imageSize.width+4;
+     titleRect.size.width-=imageSize.width+4;
+     break;
+
+    case NSImageRight:
+     imageOrigin.x=frame.origin.x+(frame.size.width-imageSize.width);
+     titleRect.size.width-=(imageSize.width+4);
+     break;
+
+    case NSImageBelow:
+     imageOrigin.y=frame.origin.y;
+     titleRect.origin.y+=imageSize.height;
+     break;
+
+    case NSImageAbove:
+     imageOrigin.y=frame.origin.y+(frame.size.height-imageSize.height);
+     titleRect.origin.y-=imageSize.height;
+     if(titleRect.origin.y<frame.origin.y)
+      titleRect.origin.y=frame.origin.y;
+     break;
+
+    case NSImageOverlaps:
+     break;
+   }
+
+   if(![self isBordered]){
+    if([self isVisuallyHighlighted]){
+     [[NSColor whiteColor] setFill];
+     NSRectFill(frame);
+    }
+   }
+
+   if([self isBordered]){
+    if(([self highlightsBy]&NSPushInCellMask) && [self isHighlighted]){
+     imageOrigin.x+=1;
+     imageOrigin.y+=[controlView isFlipped]?1:-1;
+     titleRect.origin.x+=1;
+     titleRect.origin.y+=[controlView isFlipped]?1:-1;
+    }
+   }
+
+   if(drawImage){
+    NSRect rect=NSMakeRect(imageOrigin.x,imageOrigin.y,imageSize.width,imageSize.height);
+    [self drawImage:image withFrame:rect inView:controlView];
+   }
+
+   if(drawTitle){
+    BOOL drawDottedRect=NO;
+
+    [title _clipAndDrawInRect:titleRect];
+
+    if([[controlView window] firstResponder]==controlView){
+
+     if([controlView isKindOfClass:[NSMatrix class]]){
+      NSMatrix *matrix=(NSMatrix *)controlView;
+
+      drawDottedRect=([matrix keyCell]==self)?YES:NO;
+     }
+     else if([controlView isKindOfClass:[NSControl class]]){
+      NSControl *control=(NSControl *)controlView;
+
+      drawDottedRect=([control selectedCell]==self)?YES:NO;
+     }
+    }
+
+    if(drawDottedRect)
+     NSDottedFrameRect(NSInsetRect(titleRect,1,1));
+   }
+}
+
 -(NSSize)cellSize 
 {
 	NSImage            *image=[self image];
@@ -684,45 +812,26 @@ sizeOfButtonImage:image enabled:enabled mixed:mixed];
 }
 
 -(void)drawWithFrame:(NSRect)frame inView:(NSView *)control {
-   BOOL defaulted;
-   
    _controlView=control;
 
    if([self isTransparent])
     return;
 
-   defaulted=([[control window] defaultButtonCell] == self);
-   
-   NSRect adjustment = [self getControlSizeAdjustment:[control isFlipped] ];
-   frame.size.width -= adjustment.size.width;
-   frame.size.height -= adjustment.size.height;
-   frame.origin.x += adjustment.origin.x;
-   frame.origin.y += adjustment.origin.y;
-   
-   if(_bezelStyle==NSDisclosureBezelStyle){
-// FIX The background isn't getting erased during pressing ? shouldn't the view be doing this during tracking ?
-    [[NSColor controlColor] setFill];
-    NSRectFill(frame);
-   }
-   else if(![self isBordered])
-    frame=[[_controlView graphicsStyle] drawUnborderedButtonInRect:frame defaulted:defaulted];
-   else {
-    if(([self highlightsBy]&NSPushInCellMask) && [self isHighlighted])
-     [[_controlView graphicsStyle] drawPushButtonPressedInRect:frame];
-    else if([self isVisuallyHighlighted])
-     [[_controlView graphicsStyle] drawPushButtonHighlightedInRect:frame];
-    else
-     [[_controlView graphicsStyle] drawPushButtonNormalInRect:frame defaulted:defaulted];
-         
-    frame=NSInsetRect(frame,2,2);
-   }
-
+   [self drawBezelWithFrame:frame inView:control];
    [self drawInteriorWithFrame:frame inView:control];
 }
 
 -(void)performClick:sender {
    if([_controlView respondsToSelector:@selector(performClick:)])
     [_controlView performSelector:@selector(performClick:) withObject:sender];
+}
+
+-(void)mouseEntered:(NSEvent *)event {
+   NSUnimplementedMethod();
+}
+
+-(void)mouseExited:(NSEvent *)event {
+   NSUnimplementedMethod();
 }
 
 @end

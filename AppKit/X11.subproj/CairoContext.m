@@ -8,12 +8,12 @@
 
 #import <AppKit/CairoContext.h>
 #import <AppKit/X11Display.h>
-#import <CoreGraphics/KGMutablePath.h>
-#import <CoreGraphics/KGColor.h>
+#import <CoreGraphics/O2MutablePath.h>
+#import <CoreGraphics/O2Color.h>
 #import <Foundation/NSException.h>
 #import <CoreGraphics/KGGraphicsState.h>
 #import <AppKit/TTFFont.h>
-#import <CoreGraphics/KGColorSpace.h>
+#import <CoreGraphics/O2ColorSpace.h>
 #import <CoreGraphics/KGSurface.h>
 #import <AppKit/CairoCacheImage.h>
 #import <Foundation/NSException.h>
@@ -93,7 +93,7 @@
    cairo_reset_clip(_context);  
 }
 
--(void)setCurrentColor:(KGColor*)color
+-(void)setCurrentColor:(O2Color*)color
 {
    float *c=[color components];
    int count=[color numberOfComponents];
@@ -192,7 +192,7 @@
 
 
 
--(void)setCurrentPath:(KGPath*)path
+-(void)setCurrentPath:(O2Path*)path
 {
 	unsigned             opCount=[path numberOfElements];
 	const unsigned char *operators=[path elements];
@@ -249,7 +249,7 @@
 	}
 }
 
--(void)deviceClipToNonZeroPath:(KGPath*)path
+-(void)deviceClipToNonZeroPath:(O2Path*)path
 {
 	[self setCurrentPath:path];
 	cairo_set_fill_rule(_context, CAIRO_FILL_RULE_WINDING);
@@ -259,7 +259,7 @@
 
 -(void)drawPath:(CGPathDrawingMode)mode
 {
-	[self setCurrentPath:(KGPath*)_path];
+	[self setCurrentPath:(O2Path*)_path];
    
 
 	switch(mode)
